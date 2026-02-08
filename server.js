@@ -218,6 +218,19 @@ app.post('/api/import', authenticate, async (req, res) => {
   res.json({ message: 'Dados importados' });
 });
 
+app.get('/api/health/db', async (req, res) => {
+  try {
+    const state = mongoose.connection.readyState; // 0=disconnected,1=connected,2=connecting,3=disconnecting
+    let ping = null;
+    if (mongoose.connection.db) {
+      ping = await mongoose.connection.db.admin().ping();
+    }
+    res.json({ state, ping });
+  } catch (err) {
+    res.status(500).json({ state: mongoose.connection.readyState, error: err.message });
+  }
+});
+
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) {
     return next();
