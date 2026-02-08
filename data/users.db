@@ -1,0 +1,2 @@
+{"id":"a2438af1-d78b-4988-a72a-90512af4463d","name":"Administrador","email":"admin@local.test","password":"$2a$10$As0P8/gRtDtACMEsCApWbuV7yPSFyYwO2cL8N7rNAo7CFeaVu3jL.","createdAt":"2026-02-08T02:06:22.845Z","_id":"T7xlj3iZcIRFZrDm"}
+{"$$indexCreated":{"fieldName":"email","unique":true,"sparse":false}}

@@ -1,0 +1,3 @@
+{"id":"ba580440-f62e-4021-8675-765a3236c1c4","nome":"Joao","cpf":"051.858.963-37","telefone":"","email":"","endereco":"","dataCadastro":"2026-02-08T03:51:38.969Z","_id":"5THTchgO27d82zIo"}
+{"id":"f5dcfb75-2585-403e-bc7e-bc654a692d93","nome":"Jose","cpf":"061.587.969-36","telefone":"","email":"","endereco":"","dataCadastro":"2026-02-08T05:09:36.596Z","_id":"QfAMZULvftUuGsVy"}
+{"$$indexCreated":{"fieldName":"cpf","unique":false,"sparse":false}}

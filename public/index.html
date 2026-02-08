@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestão de Empréstimos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+    <div class="background-grid"></div>
+    <div class="background-glow"></div>
+
+    <div id="loginScreen" class="auth-overlay">
+        <form id="loginForm" class="auth-card">
+            <h2>Acesse o Sistema</h2>
+            <p class="muted">Use seu e-mail corporativo para continuar.</p>
+            <div class="form-group">
+                <label for="loginEmail">E-mail</label>
+                <input type="email" id="loginEmail" placeholder="admin@local.test" required>
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">Senha</label>
+                <input type="password" id="loginPassword" placeholder="••••••••" required>
+            </div>
+            <button class="btn btn-primary" type="submit">Entrar</button>
+            <p class="muted small">Credenciais padrão: <strong>admin@local.test / admin123</strong></p>
+            <div id="loginError" class="auth-error" role="alert"></div>
+        </form>
+    </div>
+
+    <div id="appRoot" class="app-root hidden">
+        <div class="container">
+            <div class="header">
+                <div>
+                    <h1>💰 Sistema de Empréstimos</h1>
+                    <p>Gestão completa de empréstimos e simulador avançado</p>
+                </div>
+                <div class="header-actions">
+                    <span id="currentUserName" class="user-pill">Conectando...</span>
+                    <button id="logoutBtn" class="btn btn-secondary btn-small">Sair</button>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('dashboard')">Dashboard</button>
+                <button class="tab" onclick="switchTab('simulator')">Simulador</button>
+                <button class="tab" onclick="switchTab('clientes')">Clientes</button>
+                <button class="tab" onclick="switchTab('emprestimos')">Empréstimos</button>
+                <button class="tab" onclick="switchTab('pagamentos')">Pagamentos</button>
+                <button class="tab" onclick="switchTab('relatorios')">Relatórios</button>
+                <button class="tab" onclick="switchTab('historico')">Histórico</button>
+            </div>
+
+            <div class="alert hidden" id="globalAlert"></div>
+
+            <div id="dashboard" class="content active">
+            <div class="dashboard-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Emprestado</div>
+                    <div class="stat-value" id="totalEmprestado">R$ 0,00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total a Receber</div>
+                    <div class="stat-value" id="totalReceber">R$ 0,00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Principal a Receber (Ativos)</div>
+                    <div class="stat-value" id="totalPrincipalReceber">R$ 0,00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Lucro Estimado (sem amortização)</div>
+                    <div class="stat-value" id="lucroEstimado">R$ 0,00</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">Empréstimos Ativos Recentes</h2>
+                <div class="table-container" id="emprestimosAtivosTable">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📊</div>
+                        <p>Nenhum empréstimo ativo</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+            </div>
+        </div>
+
+        <div id="simulator" class="content">
+            <div class="card">
+                <h2 class="card-title">Simulador Avançado de Juros</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                    Preencha 3 dos 4 campos abaixo. O campo que estiver vazio será calculado automaticamente.
+                </p>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="simValor">Valor a Emprestar (R$)</label>
+                        <input type="number" id="simValor" step="0.01" placeholder="Ex: 10000">
+                    </div>
+                    <div class="form-group">
+                        <label for="simTaxa">Taxa de Juros (% ao mês)</label>
+                        <input type="number" id="simTaxa" step="0.01" placeholder="Ex: 5">
+                    </div>
+                    <div class="form-group">
+                        <label for="simParcelas">Quantidade de Parcelas</label>
+                        <input type="number" id="simParcelas" step="1" min="1" placeholder="Ex: 12">
+                    </div>
+                    <div class="form-group">
+                        <label for="simValorParcela">Valor da Parcela (R$)</label>
+                        <input type="number" id="simValorParcela" step="0.01" placeholder="Ex: 900">
+                    </div>
+                </div>
+
+                <div style="display:flex; gap: 1rem; flex-wrap: wrap;">
+                    <button class="btn btn-primary" onclick="simular()">Calcular Simulação</button>
+                    <button class="btn btn-secondary" onclick="compararSistemas()">Comparar Sistemas</button>
+                </div>
+
+                <div id="simulatorResult"></div>
+                <div id="comparativoSistemas" style="margin-top: 1.5rem;"></div>
+            </div>
+        </div>
+
+        <div id="clientes" class="content">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                    <h2 class="card-title" style="margin:0;">Lista de Clientes</h2>
+                    <button class="btn btn-primary" onclick="abrirModalCliente()">Novo Cliente</button>
+                </div>
+                <div class="table-container" id="listaClientes">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">👥</div>
+                        <p>Nenhum cliente cadastrado</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="emprestimos" class="content">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                    <h2 class="card-title" style="margin:0;">Empréstimos Registrados</h2>
+                    <button class="btn btn-primary" onclick="abrirModalEmprestimo()">Novo Empréstimo</button>
+                </div>
+                <div class="table-container" id="listaEmprestimos">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">💸</div>
+                        <p>Nenhum empréstimo registrado</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="pagamentos" class="content">
+            <div class="card">
+                <h2 class="card-title">Selecione um Empréstimo para Gerenciar</h2>
+                <div class="form-group">
+                    <label for="emprestimoPagamento">Empréstimo</label>
+                    <select id="emprestimoPagamento" onchange="carregarDetalhesPagamento()">
+                        <option value="">Selecione um empréstimo</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="detalhesPagamento"></div>
+        </div>
+
+        <div id="relatorios" class="content">
+            <div class="card">
+                <h2 class="card-title">Exportar Relatórios</h2>
+                <div class="dashboard-grid">
+                    <button class="btn btn-primary" onclick="gerarRelatorioPDF()">
+                        📄 Relatório Completo PDF
+                    </button>
+                    <button class="btn btn-primary" onclick="gerarCarnePDF()">
+                        📋 Carnê de Pagamentos
+                    </button>
+                    <button class="btn btn-primary" onclick="exportarDadosJSON()">
+                        💾 Backup Completo (JSON)
+                    </button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('importarJSON').click()">
+                        📂 Restaurar Backup
+                    </button>
+                </div>
+                <input type="file" id="importarJSON" accept=".json" style="display: none;" onchange="importarDadosJSON(event)">
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">Filtros de Relatório</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="filtroCliente">Cliente</label>
+                        <select id="filtroCliente">
+                            <option value="">Todos os clientes</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="filtroStatus">Status</label>
+                        <select id="filtroStatus">
+                            <option value="">Todos</option>
+                            <option value="ativo">Ativos</option>
+                            <option value="pago">Pagos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="filtroDataInicio">Data Início</label>
+                        <input type="date" id="filtroDataInicio">
+                    </div>
+                    <div class="form-group">
+                        <label for="filtroDataFim">Data Fim</label>
+                        <input type="date" id="filtroDataFim">
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="aplicarFiltros()">Aplicar Filtros</button>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">Resultados Filtrados</h2>
+                <div id="resultadosFiltrados">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔍</div>
+                        <p>Aplique os filtros para visualizar resultados</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+            <div id="historico" class="content">
+            <div class="card">
+                <h2 class="card-title">Histórico Completo</h2>
+                <div class="table-container" id="historicoCompleto">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📜</div>
+                        <p>Nenhum histórico disponível</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+            </div>
+        </div> <!-- /.container -->
+    </div>
+
+    <div id="modalPagamento" class="modal">
+        <div class="modal-content">
+            <h3 class="modal-title">Registrar Pagamento</h3>
+            <div class="form-group">
+                <label for="modalTipoPagamento">Tipo de Pagamento</label>
+                <select id="modalTipoPagamento" onchange="ajustarCamposPagamento()">
+                    <option value="parcela">Parcela Completa</option>
+                    <option value="valor">Valor Livre (Amortização)</option>
+                </select>
+            </div>
+            <div class="form-group" id="modalParcelaInfo">
+                <label>Parcela Selecionada</label>
+                <div id="infoParcelaSelecionada" style="background: var(--bg-input); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="modalValorPagamento">Valor do Pagamento (R$)</label>
+                <input type="number" id="modalValorPagamento" step="0.01" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label for="modalDataPagamento">Data do Pagamento</label>
+                <input type="date" id="modalDataPagamento">
+            </div>
+            <div class="form-group">
+                <label for="modalObservacao">Observação (opcional)</label>
+                <textarea id="modalObservacao" rows="2" placeholder="Adicione uma observação..."></textarea>
+            </div>
+            <div class="form-group" id="amortizacaoPreviewGroup" style="display:none;">
+                <label>Simulação de Amortização</label>
+                <div id="amortizacaoPreview" style="background: var(--bg-input); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;"></div>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button class="btn btn-primary" type="button" style="flex: 1;" onclick="event.preventDefault(); confirmarPagamento()">Confirmar Pagamento</button>
+                <button class="btn btn-close" type="button" onclick="fecharModal()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalNovoCliente" class="modal">
+        <div class="modal-content">
+            <h3 class="modal-title">Cadastrar Novo Cliente</h3>
+            <div class="form-grid" style="grid-template-columns: 1fr;">
+                <div class="form-group">
+                    <label for="clienteNome">Nome Completo</label>
+                    <input type="text" id="clienteNome" placeholder="Nome do cliente">
+                </div>
+                <div class="form-group">
+                    <label for="clienteCPF">CPF</label>
+                    <input type="text" id="clienteCPF" placeholder="000.000.000-00" maxlength="14">
+                </div>
+                <div class="form-group">
+                    <label for="clienteTelefone">Telefone</label>
+                    <input type="text" id="clienteTelefone" placeholder="(00) 00000-0000">
+                </div>
+                <div class="form-group">
+                    <label for="clienteEmail">E-mail</label>
+                    <input type="email" id="clienteEmail" placeholder="email@exemplo.com">
+                </div>
+                <div class="form-group">
+                    <label for="clienteEndereco">Endereço</label>
+                    <textarea id="clienteEndereco" rows="2" placeholder="Endereço completo"></textarea>
+                </div>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button class="btn btn-primary" type="button" style="flex: 1;" onclick="event.preventDefault(); cadastrarCliente()">Salvar</button>
+                <button class="btn btn-close" type="button" onclick="fecharModalCliente()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalNovoEmprestimo" class="modal">
+        <div class="modal-content">
+            <h3 class="modal-title">Novo Empréstimo</h3>
+            <div class="form-grid" style="grid-template-columns: 1fr;">
+                <div class="form-group">
+                    <label for="empCliente">Cliente</label>
+                    <select id="empCliente">
+                        <option value="">Selecione um cliente</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="empValor">Valor Emprestado (R$)</label>
+                    <input type="number" id="empValor" step="0.01" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label for="empTaxa">Taxa de Juros (% ao mês)</label>
+                    <input type="number" id="empTaxa" step="0.01" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label for="empParcelas">Número de Parcelas</label>
+                    <input type="number" id="empParcelas" step="1" min="1" placeholder="12">
+                </div>
+                <div class="form-group">
+                    <label for="empData">Data do Empréstimo</label>
+                    <input type="date" id="empData">
+                </div>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button class="btn btn-primary" type="button" style="flex: 1;" onclick="event.preventDefault(); registrarEmprestimo()">Salvar</button>
+                <button class="btn btn-close" type="button" onclick="fecharModalEmprestimo()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalDetalhesSistema" class="modal">
+        <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 class="modal-title" id="tituloDetalhesSistema">Detalhes do Sistema</h3>
+                <button class="btn btn-close" onclick="fecharModalDetalhesSistema()" style="padding: 0.5rem; line-height: 1;">✕</button>
+            </div>
+            <div id="conteudoDetalhesSistema">
+                <!-- Tabela de parcelas será injetada aqui -->
+            </div>
+            <div style="margin-top: 1.5rem; text-align: right;">
+                <button class="btn btn-secondary" onclick="fecharModalDetalhesSistema()">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>
