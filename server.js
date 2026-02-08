@@ -1,27 +1,57 @@
 const path = require('path');
-const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const Datastore = require('nedb-promises');
+const mongoose = require('mongoose');
 const { randomUUID } = require('crypto');
 
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
-const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const MONGODB_URI = process.env.MONGODB_URI;
 
-fs.mkdirSync(DATA_DIR, { recursive: true });
+const userSchema = new mongoose.Schema({
+  id: { type: String, unique: true, index: true },
+  name: String,
+  email: { type: String, unique: true, index: true },
+  password: String,
+  createdAt: String,
+}, { timestamps: false, strict: true });
 
-const usersDb = Datastore.create({ filename: path.join(DATA_DIR, 'users.db'), autoload: true });
-const clientesDb = Datastore.create({ filename: path.join(DATA_DIR, 'clientes.db'), autoload: true });
-const emprestimosDb = Datastore.create({ filename: path.join(DATA_DIR, 'emprestimos.db'), autoload: true });
+const clienteSchema = new mongoose.Schema({
+  id: { type: String, unique: true, index: true },
+  nome: String,
+  cpf: { type: String, index: true },
+  telefone: String,
+  email: String,
+  endereco: String,
+  dataCadastro: String,
+}, { timestamps: false, strict: true });
 
-usersDb.ensureIndex({ fieldName: 'email', unique: true });
-clientesDb.ensureIndex({ fieldName: 'cpf', unique: false });
-emprestimosDb.ensureIndex({ fieldName: 'clienteId', unique: false });
+const emprestimoSchema = new mongoose.Schema({
+  id: { type: String, unique: true, index: true },
+  clienteId: { type: String, index: true },
+  valor: Number,
+  valorOriginal: Number,
+  saldoDevedor: Number,
+  taxa: Number,
+  parcelas: Number,
+  parcelasRestantes: Number,
+  valorParcela: Number,
+  totalPagar: Number,
+  jurosTotal: Number,
+  dataEmprestimo: String,
+  dataCriacao: String,
+  status: String,
+  parcelasDetalhadas: { type: Array, default: [] },
+  historicoRecalculos: { type: Array, default: [] },
+}, { timestamps: false, strict: false });
+
+const Users = mongoose.model('User', userSchema);
+const Clientes = mongoose.model('Cliente', clienteSchema);
+const Emprestimos = mongoose.model('Emprestimo', emprestimoSchema);
 
 const app = express();
 app.use(cors());
@@ -57,10 +87,10 @@ function authenticate(req, res, next) {
 }
 
 async function ensureAdminUser() {
-  const existing = await usersDb.findOne({ email: 'admin@local.test' });
+  const existing = await Users.findOne({ email: 'admin@local.test' }).lean();
   if (existing) return;
   const passwordHash = await bcrypt.hash('admin123', 10);
-  await usersDb.insert({
+  await Users.create({
     id: randomUUID(),
     name: 'Administrador',
     email: 'admin@local.test',
@@ -75,7 +105,7 @@ app.post('/api/login', async (req, res) => {
   if (!email || !password) {
     return res.status(400).json({ message: 'Informe e-mail e senha.' });
   }
-  const user = await usersDb.findOne({ email: email.toLowerCase() });
+  const user = await Users.findOne({ email: email.toLowerCase() }).lean();
   if (!user) {
     return res.status(401).json({ message: 'Credenciais inválidas' });
   }
@@ -95,7 +125,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.get('/api/profile', authenticate, async (req, res) => {
-  const user = await usersDb.findOne({ id: req.user.sub });
+  const user = await Users.findOne({ id: req.user.sub }).lean();
   if (!user) {
     return res.status(404).json({ message: 'Usuário não encontrado' });
   }
@@ -103,7 +133,7 @@ app.get('/api/profile', authenticate, async (req, res) => {
 });
 
 app.get('/api/clientes', authenticate, async (req, res) => {
-  const clientes = await clientesDb.find({}).sort({ dataCadastro: -1 });
+  const clientes = await Clientes.find({}).sort({ dataCadastro: -1 }).lean();
   res.json(clientes);
 });
 
@@ -121,19 +151,19 @@ app.post('/api/clientes', authenticate, async (req, res) => {
     endereco,
     dataCadastro: new Date().toISOString(),
   };
-  const inserted = await clientesDb.insert(cliente);
+  const inserted = await Clientes.create(cliente);
   res.status(201).json(inserted);
 });
 
 app.delete('/api/clientes/:id', authenticate, async (req, res) => {
   const { id } = req.params;
-  await clientesDb.remove({ id }, {});
-  await emprestimosDb.remove({ clienteId: id }, { multi: true });
+  await Clientes.deleteOne({ id });
+  await Emprestimos.deleteMany({ clienteId: id });
   res.status(204).end();
 });
 
 app.get('/api/emprestimos', authenticate, async (req, res) => {
-  const emprestimos = await emprestimosDb.find({}).sort({ dataCriacao: -1 });
+  const emprestimos = await Emprestimos.find({}).sort({ dataCriacao: -1 }).lean();
   res.json(emprestimos);
 });
 
@@ -147,14 +177,14 @@ app.post('/api/emprestimos', authenticate, async (req, res) => {
     id: randomUUID(),
     dataCriacao: new Date().toISOString(),
   };
-  const inserted = await emprestimosDb.insert(payload);
+  const inserted = await Emprestimos.create(payload);
   res.status(201).json(inserted);
 });
 
 app.patch('/api/emprestimos/:id', authenticate, async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
-  const updated = await emprestimosDb.update({ id }, { $set: updates }, { returnUpdatedDocs: true });
+  const updated = await Emprestimos.findOneAndUpdate({ id }, { $set: updates }, { new: true }).lean();
   if (!updated) {
     return res.status(404).json({ message: 'Empréstimo não encontrado' });
   }
@@ -163,27 +193,27 @@ app.patch('/api/emprestimos/:id', authenticate, async (req, res) => {
 
 app.delete('/api/emprestimos/:id', authenticate, async (req, res) => {
   const { id } = req.params;
-  await emprestimosDb.remove({ id }, {});
+  await Emprestimos.deleteOne({ id });
   res.status(204).end();
 });
 
 app.get('/api/export', authenticate, async (req, res) => {
   const [clientes, emprestimos] = await Promise.all([
-    clientesDb.find({}),
-    emprestimosDb.find({}),
+    Clientes.find({}).lean(),
+    Emprestimos.find({}).lean(),
   ]);
   res.json({ clientes, emprestimos, dataExportacao: new Date().toISOString() });
 });
 
 app.post('/api/import', authenticate, async (req, res) => {
   const { clientes = [], emprestimos = [] } = req.body || {};
-  await clientesDb.remove({}, { multi: true });
-  await emprestimosDb.remove({}, { multi: true });
+  await Clientes.deleteMany({});
+  await Emprestimos.deleteMany({});
   if (clientes.length) {
-    await clientesDb.insert(clientes);
+    await Clientes.insertMany(clientes);
   }
   if (emprestimos.length) {
-    await emprestimosDb.insert(emprestimos);
+    await Emprestimos.insertMany(emprestimos);
   }
   res.json({ message: 'Dados importados' });
 });
@@ -211,7 +241,20 @@ function startServer(port, attempts = 10) {
   });
 }
 
-ensureAdminUser().then(() => {
-  const initialPort = Number(PORT) || 3000;
-  startServer(initialPort);
-});
+async function bootstrap() {
+  if (!MONGODB_URI) {
+    console.error('MONGODB_URI não definido nas variáveis de ambiente.');
+    process.exit(1);
+  }
+  try {
+    await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
+    console.log('Conectado ao MongoDB');
+    await ensureAdminUser();
+    const initialPort = Number(PORT) || 3000;
+    startServer(initialPort);
+  } catch (err) {
+    console.error('Erro ao conectar ao MongoDB:', err.message);
+    process.exit(1);
+  }
+}
+bootstrap();
