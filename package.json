@@ -5,12 +5,13 @@
   "main": "src/server/index.js",
   "scripts": {
     "dev": "nodemon src/server/index.js",
-    "start": "node src/server/index.js"
+    "start": "node src/server/index.js",
+    "bootstrap:admin": "node scripts/createAdmin.mjs",
+    "smoke:api": "node scripts/smokeApi.mjs"
   },
   "keywords": [
     "emprestimos",
-    "express",
-    "sqlite"
+    "express"
   ],
   "author": "",
   "license": "ISC",
@@ -19,14 +20,15 @@
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.4",
+    "express-rate-limit": "^7.4.1",
     "express": "^4.19.2",
+    "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.3.4",
-    "morgan": "^1.10.0",
-    "nedb-promises": "^6.2.3",
-    "playwright": "^1.58.2"
+    "morgan": "^1.10.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "playwright": "^1.58.2"
   }
 }

@@ -1,7 +1,7 @@
 
 (() => {
     const state = {
-        token: localStorage.getItem('authToken'),
+        token: sessionStorage.getItem('authToken'),
         user: null,
         clientes: [],
         emprestimos: [],
@@ -24,6 +24,33 @@
             path = `/${path}`;
         }
         return `${API_BASE_URL}${path}`;
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function escapeAttr(value) {
+        return escapeHtml(value).replace(/`/g, '&#96;');
+    }
+
+    function escapeJsString(value) {
+        return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
+
+    function safeText(value, fallback = '-') {
+        const text = String(value ?? '').trim();
+        return text ? escapeHtml(text) : fallback;
+    }
+
+    function parseMoney(value) {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric : 0;
     }
     let emprestimoSelecionado = null;
     let parcelaAtual = null;
@@ -124,8 +151,8 @@
             });
         }
     }
-    async function apiRequest(path, { method = 'GET', body, skipAuth = false } = {}) {
-        const options = { method, headers: {} };
+    async function apiRequest(path, { method = 'GET', body, skipAuth = false, headers = {} } = {}) {
+        const options = { method, headers: { ...headers } };
         if (body !== undefined) {
             options.headers['Content-Type'] = 'application/json';
             options.body = JSON.stringify(body);
@@ -185,7 +212,7 @@
             });
             state.token = token;
             state.user = user;
-            localStorage.setItem('authToken', token);
+            sessionStorage.setItem('authToken', token);
             dom.loginForm.reset();
             await bootstrapData();
             showApp();
@@ -201,7 +228,7 @@
         state.user = null;
         state.clientes = [];
         state.emprestimos = [];
-        localStorage.removeItem('authToken');
+        sessionStorage.removeItem('authToken');
         dom.appRoot.classList.add('hidden');
         dom.loginScreen.classList.remove('hidden');
         if (message) {
@@ -395,7 +422,9 @@
         const container = document.getElementById('simulatorResult');
         if (!container) return;
 
-        const optionsClientes = state.clientes.map(c => `<option value="${c.id}">${c.nome} - ${c.cpf}</option>`).join('');
+        const optionsClientes = state.clientes
+            .map((c) => `<option value="${escapeAttr(c.id)}">${safeText(c.nome)} - ${safeText(c.cpf)}</option>`)
+            .join('');
         const hoje = new Date().toISOString().split('T')[0];
 
         container.innerHTML = `
@@ -594,9 +623,9 @@
 
             html += `
                 <tr>
-                    <td>${cliente.nome}</td>
-                    <td>${cliente.cpf}</td>
-                    <td>${cliente.telefone || '-'}</td>
+                    <td>${safeText(cliente.nome)}</td>
+                    <td>${safeText(cliente.cpf)}</td>
+                    <td>${safeText(cliente.telefone, '-')}</td>
                     <td style="color: var(--accent-primary); font-weight: bold;">R$ ${lucroCliente.toFixed(2)}</td>
                     <td>${data}</td>
                 </tr>
@@ -712,21 +741,23 @@
         state.emprestimos.forEach((emp) => {
             const cliente = state.clientes.find((c) => c.id === emp.clienteId);
             const data = new Date(emp.dataEmprestimo).toLocaleDateString('pt-BR');
+            const statusLabel = safeText(emp.status, 'indefinido');
+            const empId = escapeJsString(emp.id);
             html += `
                 <tr>
-                    <td>${cliente ? cliente.nome : 'Cliente não encontrado'}</td>
-                    <td>R$ ${emp.valor.toFixed(2)}</td>
-                    <td>${emp.taxa.toFixed(2)}%</td>
-                    <td>${emp.parcelas}x</td>
-                    <td>R$ ${emp.valorParcela.toFixed(2)}</td>
-                    <td>R$ ${emp.totalPagar.toFixed(2)}</td>
+                    <td>${cliente ? safeText(cliente.nome) : 'Cliente não encontrado'}</td>
+                    <td>R$ ${parseMoney(emp.valor).toFixed(2)}</td>
+                    <td>${parseMoney(emp.taxa).toFixed(2)}%</td>
+                    <td>${parseMoney(emp.parcelas)}x</td>
+                    <td>R$ ${parseMoney(emp.valorParcela).toFixed(2)}</td>
+                    <td>R$ ${parseMoney(emp.totalPagar).toFixed(2)}</td>
                     <td>${data}</td>
-                    <td><span class="badge badge-${emp.status === 'ativo' ? 'active' : 'paid'}">${emp.status}</span></td>
+                    <td><span class="badge badge-${emp.status === 'ativo' ? 'active' : 'paid'}">${statusLabel}</span></td>
                     <td class="action-btns">
                         ${emp.status === 'ativo'
-                            ? `<button class="btn btn-secondary btn-small" onclick="marcarComoPago('${emp.id}')">Pago</button>`
+                            ? `<button class="btn btn-secondary btn-small" onclick="marcarComoPago('${empId}')">Pago</button>`
                             : '<span style="color: var(--text-secondary);">Finalizado</span>'}
-                        <button class="btn btn-danger btn-small" onclick="excluirEmprestimo('${emp.id}')">Excluir</button>
+                        <button class="btn btn-danger btn-small" onclick="excluirEmprestimo('${empId}')">Excluir</button>
                     </td>
                 </tr>
             `;
@@ -849,10 +880,10 @@
             const { lucroTotal } = calcularEstimativaLucro(emp);
             html += `
                 <tr>
-                    <td>${cliente ? cliente.nome : 'N/A'}</td>
-                    <td>R$ ${emp.valorOriginal.toFixed(2)}</td>
-                    <td>${emp.parcelas}x de R$ ${emp.valorParcela.toFixed(2)}</td>
-                    <td>R$ ${emp.saldoDevedor.toFixed(2)}</td>
+                    <td>${cliente ? safeText(cliente.nome) : 'N/A'}</td>
+                    <td>R$ ${parseMoney(emp.valorOriginal).toFixed(2)}</td>
+                    <td>${parseMoney(emp.parcelas)}x de R$ ${parseMoney(emp.valorParcela).toFixed(2)}</td>
+                    <td>R$ ${parseMoney(emp.saldoDevedor).toFixed(2)}</td>
                     <td style="color: var(--accent-primary);">R$ ${lucroTotal.toFixed(2)}</td>
                     <td>${data}</td>
                 </tr>
@@ -894,16 +925,17 @@
         ordenados.forEach((emp) => {
             const cliente = state.clientes.find((c) => c.id === emp.clienteId);
             const data = new Date(emp.dataEmprestimo).toLocaleDateString('pt-BR');
+            const statusLabel = safeText(emp.status, 'indefinido');
             html += `
                 <tr>
                     <td>${data}</td>
-                    <td>${cliente ? cliente.nome : 'N/A'}</td>
-                    <td>R$ ${emp.valor.toFixed(2)}</td>
-                    <td>${emp.taxa.toFixed(2)}%</td>
-                    <td>${emp.parcelas}x</td>
-                    <td>R$ ${emp.totalPagar.toFixed(2)}</td>
-                    <td>R$ ${emp.jurosTotal.toFixed(2)}</td>
-                    <td><span class="badge badge-${emp.status === 'ativo' ? 'active' : 'paid'}">${emp.status}</span></td>
+                    <td>${cliente ? safeText(cliente.nome) : 'N/A'}</td>
+                    <td>R$ ${parseMoney(emp.valor).toFixed(2)}</td>
+                    <td>${parseMoney(emp.taxa).toFixed(2)}%</td>
+                    <td>${parseMoney(emp.parcelas)}x</td>
+                    <td>R$ ${parseMoney(emp.totalPagar).toFixed(2)}</td>
+                    <td>R$ ${parseMoney(emp.jurosTotal).toFixed(2)}</td>
+                    <td><span class="badge badge-${emp.status === 'ativo' ? 'active' : 'paid'}">${statusLabel}</span></td>
                 </tr>
             `;
         });
@@ -980,14 +1012,15 @@
         `;
         emprestimos.forEach((emp) => {
             const cliente = state.clientes.find((c) => c.id === emp.clienteId);
+            const statusLabel = safeText(emp.status, 'indefinido');
             html += `
                 <tr>
-                    <td>${cliente ? cliente.nome : 'N/A'}</td>
-                    <td>R$ ${emp.valor.toFixed(2)}</td>
-                    <td>${emp.taxa.toFixed(2)}%</td>
-                    <td>${emp.parcelas}x</td>
-                    <td>R$ ${emp.saldoDevedor.toFixed(2)}</td>
-                    <td><span class="badge badge-${emp.status === 'ativo' ? 'active' : 'paid'}">${emp.status}</span></td>
+                    <td>${cliente ? safeText(cliente.nome) : 'N/A'}</td>
+                    <td>R$ ${parseMoney(emp.valor).toFixed(2)}</td>
+                    <td>${parseMoney(emp.taxa).toFixed(2)}%</td>
+                    <td>${parseMoney(emp.parcelas)}x</td>
+                    <td>R$ ${parseMoney(emp.saldoDevedor).toFixed(2)}</td>
+                    <td><span class="badge badge-${emp.status === 'ativo' ? 'active' : 'paid'}">${statusLabel}</span></td>
                     <td>${new Date(emp.dataEmprestimo).toLocaleDateString('pt-BR')}</td>
                 </tr>
             `;
@@ -1009,15 +1042,25 @@
     async function importarDadosJSON(event) {
         const file = event.target.files[0];
         if (!file) return;
+        const confirmation = prompt('Importação apaga todos os dados atuais. Informe o token de confirmação para continuar:');
+        if (!confirmation) {
+            event.target.value = '';
+            showAlert('Importação cancelada.', 'error');
+            return;
+        }
         const text = await file.text();
         try {
             const dados = JSON.parse(text);
-            await apiRequest('/api/import', { method: 'POST', body: dados });
+            await apiRequest('/api/import', {
+                method: 'POST',
+                body: dados,
+                headers: { 'x-import-confirmation': confirmation },
+            });
             await bootstrapData();
             showAlert('Backup restaurado com sucesso!');
         } catch (error) {
             console.error(error);
-            showAlert('Erro ao importar arquivo. Verifique o formato.', 'error');
+            showAlert(error.message || 'Erro ao importar arquivo. Verifique o formato.', 'error');
         } finally {
             event.target.value = '';
         }
@@ -1071,9 +1114,10 @@
         }
 
         const hoje = new Date().toISOString().split('T')[0];
+        const clienteNome = cliente ? safeText(cliente.nome) : 'N/A';
         let html = `
             <div class="card">
-                <h2 class="card-title">Controle de Pagamentos - ${cliente ? cliente.nome : 'N/A'}</h2>
+                <h2 class="card-title">Controle de Pagamentos - ${clienteNome}</h2>
                 <div class="info-grid">
                     <div class="info-box">
                         <div class="info-label">Valor Original</div>
@@ -1149,10 +1193,10 @@
                 html += `
                     <tr>
                         <td>${new Date(item.data).toLocaleDateString('pt-BR')}</td>
-                        <td>R$ ${item.valorPago.toFixed(2)}</td>
-                        <td>R$ ${item.saldoAnterior.toFixed(2)}</td>
-                        <td>R$ ${item.novoSaldo.toFixed(2)}</td>
-                        <td>${item.observacao || '-'}</td>
+                        <td>R$ ${parseMoney(item.valorPago).toFixed(2)}</td>
+                        <td>R$ ${parseMoney(item.saldoAnterior).toFixed(2)}</td>
+                        <td>R$ ${parseMoney(item.novoSaldo).toFixed(2)}</td>
+                        <td>${safeText(item.observacao, '-')}</td>
                     </tr>
                 `;
             });
@@ -1292,6 +1336,7 @@
                 pendentes.forEach((p) => {
                     p.valor = novoValorParcela;
                 });
+                emprestimo.valorParcela = novoValorParcela;
                 
                 // 5. Atualizar Saldo Devedor (Montante)
                 emprestimo.saldoDevedor = novoValorParcela * n;
@@ -1332,8 +1377,21 @@
             emprestimo.status = 'pago';
             emprestimo.saldoDevedor = 0;
         }
+        const patchPayload = {
+            saldoDevedor: emprestimo.saldoDevedor,
+            parcelasRestantes: emprestimo.parcelasRestantes,
+            valorParcela: emprestimo.valorParcela,
+            totalPagar: emprestimo.totalPagar,
+            jurosTotal: emprestimo.jurosTotal,
+            status: emprestimo.status,
+            parcelasDetalhadas: emprestimo.parcelasDetalhadas,
+            historicoRecalculos: emprestimo.historicoRecalculos,
+        };
         try {
-            const updated = await apiRequest(`/api/emprestimos/${emprestimo.id}`, { method: 'PATCH', body: emprestimo });
+            const updated = await apiRequest(`/api/emprestimos/${emprestimo.id}`, {
+                method: 'PATCH',
+                body: patchPayload,
+            });
             upsertEmprestimoLocal(updated);
             
             // Preserva a seleção do empréstimo atual no dropdown
