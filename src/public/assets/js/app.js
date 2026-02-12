@@ -254,12 +254,63 @@
     let parcelaAtual = null;
     let ultimaSimulacao = null;
 
+    // Inicializa os ícones de informação nos cards de estatísticas
+    function initStatInfoIcons() {
+        const icons = document.querySelectorAll('.stat-info-icon');
+        icons.forEach(icon => {
+            icon.addEventListener('click', function(e) {
+                e.stopPropagation();
+
+                // Remove popups ativos de outros ícones
+                document.querySelectorAll('.stat-info-popup').forEach(popup => {
+                    popup.remove();
+                });
+                document.querySelectorAll('.stat-info-icon.active').forEach(otherIcon => {
+                    otherIcon.classList.remove('active');
+                });
+
+                // Toggle do ícone atual
+                const wasActive = this.classList.contains('active');
+                if (wasActive) {
+                    this.classList.remove('active');
+                    return;
+                }
+
+                this.classList.add('active');
+
+                // Cria e mostra o popup
+                const infoText = this.getAttribute('data-info');
+                const popup = document.createElement('div');
+                popup.className = 'stat-info-popup';
+                popup.textContent = infoText;
+
+                const card = this.closest('.stat-card');
+                card.appendChild(popup);
+
+                // Força reflow para animação
+                setTimeout(() => popup.classList.add('show'), 10);
+
+                // Fecha ao clicar fora
+                const closePopup = (event) => {
+                    if (!card.contains(event.target)) {
+                        popup.classList.remove('show');
+                        this.classList.remove('active');
+                        setTimeout(() => popup.remove(), 300);
+                        document.removeEventListener('click', closePopup);
+                    }
+                };
+                setTimeout(() => document.addEventListener('click', closePopup), 10);
+            });
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', init);
 
     async function init() {
         cacheDom();
         bindEvents();
         configureInputs();
+        initStatInfoIcons();
         if (dom.empData) {
             dom.empData.valueAsDate = new Date();
         }
@@ -1074,24 +1125,61 @@
     }
 
     function updateDashboard() {
+        // 1. Total Emprestado (histórico): soma de tudo que já foi emprestado
         const totalEmprestado = state.emprestimos.reduce((sum, emp) => sum + (emp.valorOriginal || emp.valor || 0), 0);
-        
+
+        // Filtra apenas empréstimos ativos
         const ativos = state.emprestimos.filter((emp) => emp.status === 'ativo');
-        const totalReceber = ativos.reduce((sum, emp) => sum + (emp.saldoDevedor || 0), 0);
-        let totalPrincipalReceber = 0;
-        let lucroEstimado = 0;
-        ativos.forEach((emp) => {
-            const principalRestante = calcularValorQuitacao(emp);
-            totalPrincipalReceber += principalRestante;
-            lucroEstimado += (emp.jurosTotal || 0);
+
+        let capitalInvestido = 0;
+        let totalReceber = 0;
+        let totalRecebido = 0;
+
+        // 5. Total Já Recebido: calcula de TODOS os empréstimos (ativos e quitados)
+        state.emprestimos.forEach((emp) => {
+            let totalPago = 0;
+            if (emp.historicoRecalculos && emp.historicoRecalculos.length > 0) {
+                totalPago = emp.historicoRecalculos.reduce((sum, h) => sum + (h.valorPago || 0), 0);
+            } else if (emp.parcelasDetalhadas) {
+                totalPago = emp.parcelasDetalhadas
+                    .filter((p) => p.status === 'paga')
+                    .reduce((sum, p) => sum + p.valor, 0);
+            }
+            totalRecebido += totalPago;
         });
 
+        // Calcula para cada empréstimo ativo
+        ativos.forEach((emp) => {
+            const valorOriginal = emp.valorOriginal || 0;
+            const saldoDevedor = emp.saldoDevedor || 0;
+
+            // Calcula quanto já foi pago
+            let totalPago = 0;
+            if (emp.historicoRecalculos && emp.historicoRecalculos.length > 0) {
+                totalPago = emp.historicoRecalculos.reduce((sum, h) => sum + (h.valorPago || 0), 0);
+            } else if (emp.parcelasDetalhadas) {
+                totalPago = emp.parcelasDetalhadas
+                    .filter((p) => p.status === 'paga')
+                    .reduce((sum, p) => sum + p.valor, 0);
+            }
+
+            // 2. Capital Investido: quanto do seu dinheiro ainda está na rua
+            // Capital Investido = Valor Original - Total Pago (limitado a zero)
+            capitalInvestido += Math.max(valorOriginal - totalPago, 0);
+
+            // 3. Total a Receber: soma dos saldos devedores
+            totalReceber += saldoDevedor;
+        });
+
+        // 4. Lucro Estimado: Total a Receber - Capital Investido
+        const lucroEstimado = Math.max(totalReceber - capitalInvestido, 0);
+
+        // Atualiza o DOM
         document.getElementById('totalEmprestado').textContent = formatMoney(totalEmprestado);
+        document.getElementById('capitalInvestido').textContent = formatMoney(capitalInvestido);
         document.getElementById('totalReceber').textContent = formatMoney(totalReceber);
-        const elPrincipal = document.getElementById('totalPrincipalReceber');
-        if (elPrincipal) elPrincipal.textContent = formatMoney(totalPrincipalReceber);
-        const elLucro = document.getElementById('lucroEstimado');
-        if (elLucro) elLucro.textContent = formatMoney(lucroEstimado);
+        document.getElementById('lucroEstimado').textContent = formatMoney(lucroEstimado);
+        document.getElementById('totalRecebido').textContent = formatMoney(totalRecebido);
 
         const container = document.getElementById('emprestimosAtivosTable');
         if (!container) return;

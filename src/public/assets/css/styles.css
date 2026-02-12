@@ -462,7 +462,7 @@ input[readonly] {
     border-radius: 12px;
     padding: 1.5rem;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .stat-card::before {
@@ -473,6 +473,66 @@ input[readonly] {
     width: 4px;
     height: 100%;
     background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary));
+}
+
+.stat-info-icon {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    font-size: 1rem;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: all 0.3s ease;
+    z-index: 10;
+    user-select: none;
+}
+
+.stat-info-icon:hover {
+    opacity: 1;
+    transform: scale(1.2);
+}
+
+.stat-info-icon.active {
+    opacity: 1;
+}
+
+.stat-info-popup {
+    position: absolute;
+    top: 2.5rem;
+    right: 0.5rem;
+    background: var(--bg-input);
+    border: 1px solid var(--accent-primary);
+    border-radius: 8px;
+    padding: 1rem;
+    max-width: 280px;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+}
+
+.stat-info-popup.show {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateY(0);
+}
+
+.stat-info-popup::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    right: 1rem;
+    width: 12px;
+    height: 12px;
+    background: var(--bg-input);
+    border-top: 1px solid var(--accent-primary);
+    border-left: 1px solid var(--accent-primary);
+    transform: rotate(45deg);
 }
 
 .stat-label {

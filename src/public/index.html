@@ -61,20 +61,29 @@
             <div id="dashboard" class="content active">
             <div class="dashboard-grid">
                 <div class="stat-card">
+                    <span class="stat-info-icon" data-info="Soma de tudo que você já emprestou historicamente (empréstimos ativos + quitados). Este é um valor acumulado de referência.">ℹ️</span>
                     <div class="stat-label">Total Emprestado</div>
                     <div class="stat-value" id="totalEmprestado">R$ 0,00</div>
                 </div>
                 <div class="stat-card">
+                    <span class="stat-info-icon" data-info="Quanto do seu dinheiro ainda está na rua (não recuperado). Se você emprestou R$ 10.000 e já recebeu R$ 5.000, seu capital investido é R$ 5.000.">ℹ️</span>
+                    <div class="stat-label">Capital Investido</div>
+                    <div class="stat-value" id="capitalInvestido">R$ 0,00</div>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-info-icon" data-info="Quanto você ainda vai receber de todos os empréstimos ativos. Este é o saldo devedor total (inclui seu capital + lucros).">ℹ️</span>
                     <div class="stat-label">Total a Receber</div>
                     <div class="stat-value" id="totalReceber">R$ 0,00</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Principal a Receber (Ativos)</div>
-                    <div class="stat-value" id="totalPrincipalReceber">R$ 0,00</div>
+                    <span class="stat-info-icon" data-info="Quanto você vai lucrar quando receber tudo. Calculado como: Total a Receber - Capital Investido. Este é seu lucro futuro.">ℹ️</span>
+                    <div class="stat-label">Lucro Estimado</div>
+                    <div class="stat-value" id="lucroEstimado">R$ 0,00</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Lucro Estimado (sem amortização)</div>
-                    <div class="stat-value" id="lucroEstimado">R$ 0,00</div>
+                    <span class="stat-info-icon" data-info="Quanto você já recebeu de todos os empréstimos (ativos e quitados). Valor acumulado histórico para controle de caixa.">ℹ️</span>
+                    <div class="stat-label">Total Já Recebido</div>
+                    <div class="stat-value" id="totalRecebido">R$ 0,00</div>
                 </div>
             </div>
 
