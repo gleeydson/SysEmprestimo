@@ -52,6 +52,204 @@
         const numeric = Number(value);
         return Number.isFinite(numeric) ? numeric : 0;
     }
+
+    /**
+     * Formata um valor numérico para o padrão monetário brasileiro
+     * @param {number} value - Valor a ser formatado
+     * @param {boolean} includeSymbol - Se deve incluir o símbolo R$ (padrão: true)
+     * @returns {string} - Valor formatado (ex: "R$ 1.500,00")
+     */
+    function formatMoney(value, includeSymbol = true) {
+        const numValue = parseMoney(value);
+        const formatted = numValue.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        return includeSymbol ? `R$ ${formatted}` : formatted;
+    }
+
+    /**
+     * Formata uma porcentagem no padrão brasileiro
+     * @param {number} value - Valor a ser formatado
+     * @returns {string} - Valor formatado (ex: "5,50%")
+     */
+    function formatPercent(value) {
+        const numValue = parseMoney(value);
+        return numValue.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }) + '%';
+    }
+
+    /**
+     * Parse um valor formatado no padrão brasileiro para número
+     * @param {string} value - Valor formatado (ex: "1.500,00" ou "1500,00")
+     * @returns {number} - Número parseado
+     */
+    function parseBRMoney(value) {
+        if (typeof value === 'number') return value;
+        if (!value) return 0;
+
+        // Remove R$, espaços e pontos (separador de milhares)
+        const cleaned = String(value)
+            .replace(/R\$/g, '')
+            .replace(/\s/g, '')
+            .replace(/\./g, '')
+            .replace(',', '.');
+
+        const num = parseFloat(cleaned);
+        return isNaN(num) ? 0 : num;
+    }
+
+    /**
+     * Formata um input enquanto o usuário digita (máscara brasileira)
+     * @param {string} value - Valor digitado
+     * @param {boolean} addZeros - Se deve adicionar zeros automaticamente
+     * @returns {string} - Valor formatado
+     */
+    function formatInputMoney(value, addZeros = false) {
+        if (!value) return '';
+
+        // Remove tudo exceto números e vírgula
+        let cleaned = String(value).replace(/[^\d,]/g, '');
+
+        // Garante apenas uma vírgula
+        const parts = cleaned.split(',');
+        if (parts.length > 2) {
+            cleaned = parts[0] + ',' + parts.slice(1).join('');
+        }
+
+        // Separa parte inteira e decimal
+        const [intPart, decPart] = cleaned.split(',');
+
+        if (!intPart) return '';
+
+        // Formata parte inteira com pontos de milhares
+        const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+        // Limita casas decimais a 2
+        let formattedDec = decPart !== undefined ? decPart.substring(0, 2) : '';
+
+        // Se tem vírgula ou addZeros é true, garante 2 casas decimais
+        if (decPart !== undefined || addZeros) {
+            formattedDec = formattedDec.padEnd(2, '0');
+            return `${formattedInt},${formattedDec}`;
+        }
+
+        return formattedInt;
+    }
+
+    // ============================================
+    // TOAST NOTIFICATION SYSTEM
+    // ============================================
+    const Toast = {
+        container: null,
+
+        init() {
+            if (!this.container) {
+                this.container = document.getElementById('toastContainer');
+            }
+        },
+
+        show(message, type = 'info', duration = 5000) {
+            this.init();
+
+            const icons = {
+                success: '✓',
+                error: '✕',
+                warning: '⚠',
+                info: 'ℹ'
+            };
+
+            const titles = {
+                success: 'Sucesso',
+                error: 'Erro',
+                warning: 'Atenção',
+                info: 'Informação'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <div class="toast-icon">${icons[type] || icons.info}</div>
+                <div class="toast-content">
+                    <div class="toast-title">${titles[type] || titles.info}</div>
+                    <div class="toast-message">${escapeHtml(message)}</div>
+                </div>
+                <button class="toast-close" onclick="this.parentElement.classList.add('removing'); setTimeout(() => this.parentElement.remove(), 300)">✕</button>
+            `;
+
+            this.container.appendChild(toast);
+
+            // Auto remove
+            if (duration > 0) {
+                setTimeout(() => {
+                    toast.classList.add('removing');
+                    setTimeout(() => toast.remove(), 300);
+                }, duration);
+            }
+
+            return toast;
+        },
+
+        success(message, duration) {
+            return this.show(message, 'success', duration);
+        },
+
+        error(message, duration) {
+            return this.show(message, 'error', duration);
+        },
+
+        warning(message, duration) {
+            return this.show(message, 'warning', duration);
+        },
+
+        info(message, duration) {
+            return this.show(message, 'info', duration);
+        }
+    };
+
+    // ============================================
+    // LOADING STATE HELPERS
+    // ============================================
+    function setButtonLoading(button, loading) {
+        if (loading) {
+            button.classList.add('loading');
+            button.disabled = true;
+        } else {
+            button.classList.remove('loading');
+            button.disabled = false;
+        }
+    }
+
+    function showSkeleton(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-line" style="width: 80%"></div>
+            <div class="skeleton skeleton-line" style="width: 60%"></div>
+            <div class="skeleton skeleton-line" style="width: 90%"></div>
+        `;
+    }
+
+    // ============================================
+    // TABLE SCROLL INDICATOR
+    // ============================================
+    function checkTableScroll(tableContainer) {
+        if (!tableContainer) return;
+
+        const table = tableContainer.querySelector('table');
+        if (!table) return;
+
+        if (table.scrollWidth > tableContainer.clientWidth) {
+            tableContainer.classList.add('has-scroll');
+        } else {
+            tableContainer.classList.remove('has-scroll');
+        }
+    }
+
     let emprestimoSelecionado = null;
     let parcelaAtual = null;
     let ultimaSimulacao = null;
@@ -150,6 +348,129 @@
                 }
             });
         }
+
+        // Máscaras dos campos do simulador
+        const simValorInput = document.getElementById('simValor');
+        const simTaxaInput = document.getElementById('simTaxa');
+
+        function formatCentsToBR(cents) {
+            return (cents / 100).toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            });
+        }
+
+        function attachCentavosMask(input) {
+            if (!input) return;
+            let cents = 0;
+
+            const parseDigits = (value) => {
+                const digits = String(value || '').replace(/\D/g, '');
+                return digits ? parseInt(digits, 10) : 0;
+            };
+
+            const render = () => {
+                input.value = formatCentsToBR(cents);
+            };
+
+            const syncFromCurrentValue = () => {
+                cents = parseDigits(input.value);
+                render();
+            };
+
+            input.addEventListener('focus', () => {
+                if (!input.value) {
+                    cents = 0;
+                    render();
+                }
+            });
+
+            input.addEventListener('keydown', (event) => {
+                if (event.ctrlKey || event.metaKey || event.altKey) {
+                    return;
+                }
+
+                if (event.key === 'Tab') return;
+                if (event.key === 'ArrowLeft' || event.key === 'ArrowRight' || event.key === 'Home' || event.key === 'End') return;
+
+                if (event.key === 'Backspace') {
+                    cents = Math.floor(cents / 10);
+                    render();
+                    event.preventDefault();
+                    return;
+                }
+
+                if (event.key === 'Delete') {
+                    cents = 0;
+                    render();
+                    event.preventDefault();
+                    return;
+                }
+
+                if (/^\d$/.test(event.key)) {
+                    cents = (cents * 10) + Number(event.key);
+                    render();
+                    event.preventDefault();
+                    return;
+                }
+
+                event.preventDefault();
+            });
+
+            input.addEventListener('paste', (event) => {
+                event.preventDefault();
+                const pastedText = event.clipboardData?.getData('text') || '';
+                cents = parseDigits(pastedText);
+                render();
+            });
+
+            input.addEventListener('input', () => {
+                // Fallback para autofill e edições não capturadas por keydown.
+                cents = parseDigits(input.value);
+                render();
+            });
+
+            input.addEventListener('blur', () => {
+                if (cents === 0) {
+                    input.value = '';
+                }
+            });
+
+            syncFromCurrentValue();
+        }
+
+        function sanitizeDecimalInput(rawValue) {
+            let value = String(rawValue || '').replace(/[^\d,]/g, '');
+            const firstComma = value.indexOf(',');
+            if (firstComma !== -1) {
+                const integerPart = value.slice(0, firstComma);
+                const decimalPart = value.slice(firstComma + 1).replace(/,/g, '').slice(0, 2);
+                value = decimalPart ? `${integerPart},${decimalPart}` : `${integerPart},`;
+            }
+            return value;
+        }
+
+        function attachTaxaMask(input) {
+            if (!input) return;
+            input.addEventListener('focus', (event) => {
+                event.target.value = String(event.target.value || '').replace(/\./g, '');
+            });
+            input.addEventListener('input', (event) => {
+                event.target.value = sanitizeDecimalInput(event.target.value);
+            });
+            input.addEventListener('blur', (event) => {
+                const value = sanitizeDecimalInput(event.target.value);
+                if (!value) {
+                    event.target.value = '';
+                    return;
+                }
+                const [intPart, decPart = ''] = value.split(',');
+                event.target.value = decPart ? `${intPart},${decPart.padEnd(2, '0')}` : intPart;
+            });
+        }
+
+        attachCentavosMask(simValorInput);
+        attachTaxaMask(simTaxaInput);
     }
     async function apiRequest(path, { method = 'GET', body, skipAuth = false, headers = {} } = {}) {
         const options = { method, headers: { ...headers } };
@@ -285,17 +606,14 @@
     }
 
     function showAlert(message, type = 'success') {
-        if (!dom.globalAlert) return;
-        dom.globalAlert.textContent = message;
-        dom.globalAlert.classList.remove('hidden', 'error');
+        // Use Toast system instead of old alert banner
         if (type === 'error') {
-            dom.globalAlert.classList.add('error');
+            Toast.error(message);
+        } else if (type === 'success') {
+            Toast.success(message);
         } else {
-            dom.globalAlert.classList.remove('error');
+            Toast.info(message);
         }
-        setTimeout(() => {
-            dom.globalAlert.classList.add('hidden');
-        }, 4000);
     }
     function switchTab(tabName) {
         const trigger = window.event?.currentTarget;
@@ -323,98 +641,28 @@
     }
 
     function simular() {
-        const valor = parseFloat(document.getElementById('simValor').value) || null;
-        const taxa = parseFloat(document.getElementById('simTaxa').value) || null;
+        const valor = parseBRMoney(document.getElementById('simValor').value) || null;
+        const taxa = parseBRMoney(document.getElementById('simTaxa').value) || null;
         const parcelas = parseInt(document.getElementById('simParcelas').value, 10) || null;
-        const valorParcela = parseFloat(document.getElementById('simValorParcela').value) || null;
-        const camposPreenchidos = [valor, taxa, parcelas, valorParcela].filter((v) => v !== null).length;
 
-        if (camposPreenchidos !== 3) {
-            alert('Preencha exatamente 3 campos para calcular a simulação.');
+        if (!valor || !taxa || !parcelas || parcelas < 1) {
+            Toast.warning('Preencha valor, taxa e quantidade de parcelas para calcular a simulação.');
             return;
         }
 
-        let resultado = {};
-        if (valor !== null && taxa !== null && parcelas !== null && valorParcela === null) {
-            const taxaDecimal = taxa / 100;
-            const valorParcelaCalc = (valor * (taxaDecimal * Math.pow(1 + taxaDecimal, parcelas))) / (Math.pow(1 + taxaDecimal, parcelas) - 1);
-            resultado = {
-                valor,
-                taxa,
-                parcelas,
-                valorParcela: valorParcelaCalc,
-                totalPago: valorParcelaCalc * parcelas,
-                jurosTotal: valorParcelaCalc * parcelas - valor,
-                campoCalculado: 'Valor da Parcela',
-            };
-        } else if (valor !== null && taxa !== null && parcelas === null && valorParcela !== null) {
-            const taxaDecimal = taxa / 100;
-            const jurosPrimeiroMes = valor * taxaDecimal;
-            if (valorParcela <= jurosPrimeiroMes) {
-                alert(`A parcela precisa ser maior que os juros do primeiro mês (R$ ${jurosPrimeiroMes.toFixed(2)}).`);
-                return;
-            }
-            const parcelasCalc = Math.log(valorParcela / (valorParcela - valor * taxaDecimal)) / Math.log(1 + taxaDecimal);
-            const parcelasRound = Math.ceil(parcelasCalc);
-            const valorParcelaReal = (valor * (taxaDecimal * Math.pow(1 + taxaDecimal, parcelasRound))) / (Math.pow(1 + taxaDecimal, parcelasRound) - 1);
-            const totalPagoReal = valorParcelaReal * parcelasRound;
-            resultado = {
-                valor,
-                taxa,
-                parcelas: parcelasRound,
-                parcelasExatas: parcelasCalc,
-                valorParcela,
-                valorParcelaReal,
-                totalPago: totalPagoReal,
-                jurosTotal: totalPagoReal - valor,
-                campoCalculado: 'Quantidade de Parcelas',
-                aviso: true,
-            };
-        } else if (valor === null && taxa !== null && parcelas !== null && valorParcela !== null) {
-            const taxaDecimal = taxa / 100;
-            const valorCalc = (valorParcela * (Math.pow(1 + taxaDecimal, parcelas) - 1)) / (taxaDecimal * Math.pow(1 + taxaDecimal, parcelas));
-            resultado = {
-                valor: valorCalc,
-                taxa,
-                parcelas,
-                valorParcela,
-                totalPago: valorParcela * parcelas,
-                jurosTotal: valorParcela * parcelas - valorCalc,
-                campoCalculado: 'Valor a Emprestar',
-            };
-        } else if (valor !== null && taxa === null && parcelas !== null && valorParcela !== null) {
-            const taxaCalc = calcularTaxaJuros(valor, valorParcela, parcelas);
-            resultado = {
-                valor,
-                taxa: taxaCalc,
-                parcelas,
-                valorParcela,
-                totalPago: valorParcela * parcelas,
-                jurosTotal: valorParcela * parcelas - valor,
-                campoCalculado: 'Taxa de Juros',
-            };
-        }
+        const taxaDecimal = taxa / 100;
+        const valorParcela = taxaDecimal > 0
+            ? (valor * (taxaDecimal * Math.pow(1 + taxaDecimal, parcelas))) / (Math.pow(1 + taxaDecimal, parcelas) - 1)
+            : valor / parcelas;
+        const resultado = {
+            valor,
+            taxa,
+            parcelas,
+            valorParcela,
+            totalPago: valorParcela * parcelas,
+            jurosTotal: valorParcela * parcelas - valor,
+        };
         exibirResultadoSimulacao(resultado);
-    }
-
-    function calcularTaxaJuros(principal, pagamento, parcelas) {
-        let taxa = 0.01;
-        let iteracoes = 0;
-        const maxIteracoes = 100;
-        const precisao = 0.000001;
-        while (iteracoes < maxIteracoes) {
-            const numerador = principal * (taxa * Math.pow(1 + taxa, parcelas));
-            const denominador = Math.pow(1 + taxa, parcelas) - 1;
-            const f = numerador / denominador - pagamento;
-            const fDerivada = (principal * parcelas * Math.pow(1 + taxa, parcelas - 1) * denominador - principal * taxa * Math.pow(1 + taxa, parcelas) * parcelas * Math.pow(1 + taxa, parcelas - 1)) / Math.pow(denominador, 2);
-            const novaTaxa = taxa - f / fDerivada;
-            if (Math.abs(novaTaxa - taxa) < precisao) {
-                return novaTaxa * 100;
-            }
-            taxa = novaTaxa;
-            iteracoes += 1;
-        }
-        return taxa * 100;
     }
 
     function exibirResultadoSimulacao(resultado) {
@@ -433,11 +681,11 @@
                 <div class="info-grid">
                     <div class="info-box">
                         <div class="info-label">Valor do Empréstimo</div>
-                        <div class="info-value">R$ ${resultado.valor.toFixed(2)}</div>
+                        <div class="info-value">${formatMoney(resultado.valor)}</div>
                     </div>
                     <div class="info-box">
                         <div class="info-label">Taxa de Juros</div>
-                        <div class="info-value">${resultado.taxa.toFixed(2)}% a.m.</div>
+                        <div class="info-value">${formatPercent(resultado.taxa)} a.m.</div>
                     </div>
                     <div class="info-box">
                         <div class="info-label">Parcelas</div>
@@ -445,19 +693,17 @@
                     </div>
                     <div class="info-box">
                         <div class="info-label">Valor da Parcela</div>
-                        <div class="info-value">R$ ${resultado.valorParcela.toFixed(2)}</div>
+                        <div class="info-value">${formatMoney(resultado.valorParcela)}</div>
                     </div>
                     <div class="info-box">
                         <div class="info-label">Total a Pagar</div>
-                        <div class="info-value">R$ ${resultado.totalPago.toFixed(2)}</div>
+                        <div class="info-value">${formatMoney(resultado.totalPago)}</div>
                     </div>
                     <div class="info-box">
                         <div class="info-label">Total de Juros</div>
-                        <div class="info-value">R$ ${resultado.jurosTotal.toFixed(2)}</div>
+                        <div class="info-value">${formatMoney(resultado.jurosTotal)}</div>
                     </div>
                 </div>
-                ${resultado.aviso ? `<p style="color: var(--accent-warning); margin-top: 1rem;">⚠️ Ajuste automático: A quantidade de parcelas foi arredondada.</p>` : ''}
-                
                 <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
                     <h4 style="margin-bottom: 1rem;">Efetivar Empréstimo</h4>
                     <p class="muted" style="margin-bottom: 1rem;">Selecione o cliente para vincular a esta simulação e criar o empréstimo.</p>
@@ -482,7 +728,7 @@
 
     async function confirmarEmprestimoSimulado() {
         if (!ultimaSimulacao) {
-            alert('Faça uma simulação primeiro.');
+            Toast.warning('Faça uma simulação primeiro.');
             return;
         }
 
@@ -490,11 +736,11 @@
         const data = document.getElementById('simData').value;
 
         if (!clienteId) {
-            alert('Selecione um cliente para continuar.');
+            Toast.warning('Selecione um cliente para continuar.');
             return;
         }
         if (!data) {
-            alert('Selecione a data do empréstimo.');
+            Toast.warning('Selecione a data do empréstimo.');
             return;
         }
 
@@ -543,7 +789,6 @@
             document.getElementById('simValor').value = '';
             document.getElementById('simTaxa').value = '';
             document.getElementById('simParcelas').value = '';
-            document.getElementById('simValorParcela').value = '';
 
             updateEmprestimosList();
             updateDashboard();
@@ -562,7 +807,7 @@
         const email = document.getElementById('clienteEmail').value.trim();
         const endereco = document.getElementById('clienteEndereco').value.trim();
         if (!nome || !cpf) {
-            alert('Nome e CPF são obrigatórios.');
+            Toast.warning('Nome e CPF são obrigatórios.');
             return;
         }
         try {
@@ -626,7 +871,7 @@
                     <td>${safeText(cliente.nome)}</td>
                     <td>${safeText(cliente.cpf)}</td>
                     <td>${safeText(cliente.telefone, '-')}</td>
-                    <td style="color: var(--accent-primary); font-weight: bold;">R$ ${lucroCliente.toFixed(2)}</td>
+                    <td style="color: var(--accent-primary); font-weight: bold;">${formatMoney(lucroCliente)}</td>
                     <td>${data}</td>
                 </tr>
             `;
@@ -654,7 +899,7 @@
         const parcelas = parseInt(document.getElementById('empParcelas').value, 10);
         const data = document.getElementById('empData').value;
         if (!clienteId || !valor || !taxa || !parcelas || !data) {
-            alert('Preencha todos os campos do empréstimo.');
+            Toast.warning('Preencha todos os campos do empréstimo.');
             return;
         }
         const taxaDecimal = taxa / 100;
@@ -746,11 +991,11 @@
             html += `
                 <tr>
                     <td>${cliente ? safeText(cliente.nome) : 'Cliente não encontrado'}</td>
-                    <td>R$ ${parseMoney(emp.valor).toFixed(2)}</td>
-                    <td>${parseMoney(emp.taxa).toFixed(2)}%</td>
+                    <td>${formatMoney(emp.valor)}</td>
+                    <td>${formatPercent(emp.taxa)}</td>
                     <td>${parseMoney(emp.parcelas)}x</td>
-                    <td>R$ ${parseMoney(emp.valorParcela).toFixed(2)}</td>
-                    <td>R$ ${parseMoney(emp.totalPagar).toFixed(2)}</td>
+                    <td>${formatMoney(emp.valorParcela)}</td>
+                    <td>${formatMoney(emp.totalPagar)}</td>
                     <td>${data}</td>
                     <td><span class="badge badge-${emp.status === 'ativo' ? 'active' : 'paid'}">${statusLabel}</span></td>
                     <td class="action-btns">
@@ -841,12 +1086,12 @@
             lucroEstimado += (emp.jurosTotal || 0);
         });
 
-        document.getElementById('totalEmprestado').textContent = `R$ ${totalEmprestado.toFixed(2)}`;
-        document.getElementById('totalReceber').textContent = `R$ ${totalReceber.toFixed(2)}`;
+        document.getElementById('totalEmprestado').textContent = formatMoney(totalEmprestado);
+        document.getElementById('totalReceber').textContent = formatMoney(totalReceber);
         const elPrincipal = document.getElementById('totalPrincipalReceber');
-        if (elPrincipal) elPrincipal.textContent = `R$ ${totalPrincipalReceber.toFixed(2)}`;
+        if (elPrincipal) elPrincipal.textContent = formatMoney(totalPrincipalReceber);
         const elLucro = document.getElementById('lucroEstimado');
-        if (elLucro) elLucro.textContent = `R$ ${lucroEstimado.toFixed(2)}`;
+        if (elLucro) elLucro.textContent = formatMoney(lucroEstimado);
 
         const container = document.getElementById('emprestimosAtivosTable');
         if (!container) return;
@@ -881,10 +1126,10 @@
             html += `
                 <tr>
                     <td>${cliente ? safeText(cliente.nome) : 'N/A'}</td>
-                    <td>R$ ${parseMoney(emp.valorOriginal).toFixed(2)}</td>
-                    <td>${parseMoney(emp.parcelas)}x de R$ ${parseMoney(emp.valorParcela).toFixed(2)}</td>
-                    <td>R$ ${parseMoney(emp.saldoDevedor).toFixed(2)}</td>
-                    <td style="color: var(--accent-primary);">R$ ${lucroTotal.toFixed(2)}</td>
+                    <td>${formatMoney(emp.valorOriginal)}</td>
+                    <td>${parseMoney(emp.parcelas)}x de ${formatMoney(emp.valorParcela)}</td>
+                    <td>${formatMoney(emp.saldoDevedor)}</td>
+                    <td style="color: var(--accent-primary);">${formatMoney(lucroTotal)}</td>
                     <td>${data}</td>
                 </tr>
             `;
@@ -930,11 +1175,11 @@
                 <tr>
                     <td>${data}</td>
                     <td>${cliente ? safeText(cliente.nome) : 'N/A'}</td>
-                    <td>R$ ${parseMoney(emp.valor).toFixed(2)}</td>
-                    <td>${parseMoney(emp.taxa).toFixed(2)}%</td>
+                    <td>${formatMoney(parseMoney(emp.valor))}</td>
+                    <td>${formatPercent(parseMoney(emp.taxa))}</td>
                     <td>${parseMoney(emp.parcelas)}x</td>
-                    <td>R$ ${parseMoney(emp.totalPagar).toFixed(2)}</td>
-                    <td>R$ ${parseMoney(emp.jurosTotal).toFixed(2)}</td>
+                    <td>${formatMoney(parseMoney(emp.totalPagar))}</td>
+                    <td>${formatMoney(parseMoney(emp.jurosTotal))}</td>
                     <td><span class="badge badge-${emp.status === 'ativo' ? 'active' : 'paid'}">${statusLabel}</span></td>
                 </tr>
             `;
@@ -985,11 +1230,11 @@
             <div class="info-grid">
                 <div class="info-box">
                     <div class="info-label">Total Filtrado</div>
-                    <div class="info-value">R$ ${totalValor.toFixed(2)}</div>
+                    <div class="info-value">${formatMoney(totalValor)}</div>
                 </div>
                 <div class="info-box">
                     <div class="info-label">Saldo Devedor</div>
-                    <div class="info-value">R$ ${totalSaldo.toFixed(2)}</div>
+                    <div class="info-value">${formatMoney(totalSaldo)}</div>
                 </div>
                 <div class="info-box">
                     <div class="info-label">Empréstimos</div>
@@ -1016,10 +1261,10 @@
             html += `
                 <tr>
                     <td>${cliente ? safeText(cliente.nome) : 'N/A'}</td>
-                    <td>R$ ${parseMoney(emp.valor).toFixed(2)}</td>
-                    <td>${parseMoney(emp.taxa).toFixed(2)}%</td>
+                    <td>${formatMoney(parseMoney(emp.valor))}</td>
+                    <td>${formatPercent(parseMoney(emp.taxa))}</td>
                     <td>${parseMoney(emp.parcelas)}x</td>
-                    <td>R$ ${parseMoney(emp.saldoDevedor).toFixed(2)}</td>
+                    <td>${formatMoney(parseMoney(emp.saldoDevedor))}</td>
                     <td><span class="badge badge-${emp.status === 'ativo' ? 'active' : 'paid'}">${statusLabel}</span></td>
                     <td>${new Date(emp.dataEmprestimo).toLocaleDateString('pt-BR')}</td>
                 </tr>
@@ -1076,7 +1321,7 @@
             const option = document.createElement('option');
             option.value = emp.id;
             const statusLabel = emp.status === 'ativo' ? `${emp.parcelasRestantes}/${emp.parcelas}` : 'Finalizado';
-            option.textContent = `${cliente ? cliente.nome : 'N/A'} - R$ ${emp.valor.toFixed(2)} (${statusLabel})`;
+            option.textContent = `${cliente ? cliente.nome : 'N/A'} - ${formatMoney(emp.valor)} (${statusLabel})`;
             dom.emprestimoPagamento.appendChild(option);
         });
     }
@@ -1121,19 +1366,19 @@
                 <div class="info-grid">
                     <div class="info-box">
                         <div class="info-label">Valor Original</div>
-                        <div class="info-value">R$ ${emprestimoSelecionado.valorOriginal.toFixed(2)}</div>
+                        <div class="info-value">${formatMoney(emprestimoSelecionado.valorOriginal)}</div>
                     </div>
                     <div class="info-box">
                         <div class="info-label">Saldo Devedor</div>
-                        <div class="info-value" style="color: var(--accent-warning);">R$ ${emprestimoSelecionado.saldoDevedor.toFixed(2)}</div>
+                        <div class="info-value" style="color: var(--accent-warning);">${formatMoney(emprestimoSelecionado.saldoDevedor)}</div>
                     </div>
                     <div class="info-box">
                         <div class="info-label">Total Pago</div>
-                        <div class="info-value" style="color: var(--accent-secondary);">R$ ${totalPago.toFixed(2)}</div>
+                        <div class="info-value" style="color: var(--accent-secondary);">${formatMoney(totalPago)}</div>
                     </div>
                     <div class="info-box">
                         <div class="info-label">Total Amortizado</div>
-                        <div class="info-value" style="color: var(--accent-primary);">R$ ${totalAmortizado.toFixed(2)}</div>
+                        <div class="info-value" style="color: var(--accent-primary);">${formatMoney(totalAmortizado)}</div>
                     </div>
                     <div class="info-box">
                         <div class="info-label">Parcelas Pagas</div>
@@ -1160,8 +1405,8 @@
                     <div class="parcela-info">
                         <div class="parcela-numero">Parcela ${parcela.numero} ${parcela.status === 'paga' ? '✓' : ''} ${atrasada ? '⚠️ ATRASADA' : ''}</div>
                         <div class="parcela-detalhes">
-                            Vencimento: ${dataVenc} | Valor: R$ ${parcela.valor.toFixed(2)}
-                            ${parcela.status === 'paga' ? `<br>Pago em: ${new Date(parcela.dataPagamento).toLocaleDateString('pt-BR')} - R$ ${parcela.valorPago.toFixed(2)}` : ''}
+                            Vencimento: ${dataVenc} | Valor: ${formatMoney(parcela.valor)}
+                            ${parcela.status === 'paga' ? `<br>Pago em: ${new Date(parcela.dataPagamento).toLocaleDateString('pt-BR')} - ${formatMoney(parcela.valorPago)}` : ''}
                         </div>
                     </div>
                     <div class="parcela-actions">
@@ -1193,9 +1438,9 @@
                 html += `
                     <tr>
                         <td>${new Date(item.data).toLocaleDateString('pt-BR')}</td>
-                        <td>R$ ${parseMoney(item.valorPago).toFixed(2)}</td>
-                        <td>R$ ${parseMoney(item.saldoAnterior).toFixed(2)}</td>
-                        <td>R$ ${parseMoney(item.novoSaldo).toFixed(2)}</td>
+                        <td>${formatMoney(parseMoney(item.valorPago))}</td>
+                        <td>${formatMoney(parseMoney(item.saldoAnterior))}</td>
+                        <td>${formatMoney(parseMoney(item.novoSaldo))}</td>
                         <td>${safeText(item.observacao, '-')}</td>
                     </tr>
                 `;
@@ -1206,7 +1451,7 @@
     }
     function abrirModalPagamento(numeroParcela) {
         if (!emprestimoSelecionado) {
-            alert('Selecione um empréstimo primeiro.');
+            Toast.warning('Selecione um empréstimo primeiro.');
             return;
         }
         parcelaAtual = emprestimoSelecionado.parcelasDetalhadas.find((p) => p.numero === numeroParcela);
@@ -1223,7 +1468,7 @@
         dom.infoParcelaSelecionada.innerHTML = `
             <strong>Parcela ${parcelaAtual.numero}</strong><br>
             Vencimento: ${new Date(parcelaAtual.dataVencimento).toLocaleDateString('pt-BR')}<br>
-            Valor: R$ ${parcelaAtual.valor.toFixed(2)}
+            Valor: ${formatMoney(parcelaAtual.valor)}
         `;
         ajustarCamposPagamento();
         dom.modalPagamento.classList.add('active');
@@ -1231,7 +1476,7 @@
 
     function abrirModalAmortizacao() {
         if (!emprestimoSelecionado) {
-            alert('Selecione um empréstimo primeiro.');
+            Toast.warning('Selecione um empréstimo primeiro.');
             return;
         }
         parcelaAtual = null;
@@ -1263,7 +1508,7 @@
 
     async function confirmarPagamento() {
         if (!emprestimoSelecionado) {
-            alert('Selecione um empréstimo.');
+            Toast.warning('Selecione um empréstimo.');
             return;
         }
         const tipo = dom.modalTipoPagamento.value;
@@ -1271,7 +1516,7 @@
         const data = dom.modalDataPagamento.value;
         const observacao = dom.modalObservacao.value;
         if (!valor || !data) {
-            alert('Informe valor e data do pagamento.');
+            Toast.warning('Informe valor e data do pagamento.');
             return;
         }
         const emprestimo = { ...emprestimoSelecionado };
@@ -1359,7 +1604,7 @@
 
             let obsFinal = observacao || 'Amortização com desconto de juros';
             if (economia > 0.01) {
-                obsFinal += ` (Economia: R$ ${economia.toFixed(2)})`;
+                obsFinal += ` (Economia: ${formatMoney(economia)})`;
             }
 
             emprestimo.historicoRecalculos.push({
@@ -1457,19 +1702,19 @@
                 <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
                     <div>
                         <div style="color: var(--text-secondary);">Valor para quitar hoje</div>
-                        <div style="font-weight:600;">R$ ${vp.toFixed(2)}</div>
+                        <div style="font-weight:600;">${formatMoney(vp)}</div>
                     </div>
                     <div>
                         <div style="color: var(--text-secondary);">Falta para quitar</div>
-                        <div style="font-weight:600; color: var(--accent-primary);">R$ ${faltaParaQuitar.toFixed(2)}</div>
+                        <div style="font-weight:600; color: var(--accent-primary);">${formatMoney(faltaParaQuitar)}</div>
                     </div>
                     <div>
                         <div style="color: var(--text-secondary);">Nova parcela estimada</div>
-                        <div style="font-weight:600;">R$ ${novoValorParcela.toFixed(2)}</div>
+                        <div style="font-weight:600;">${formatMoney(novoValorParcela)}</div>
                     </div>
                     <div>
                         <div style="color: var(--text-secondary);">Economia estimada</div>
-                        <div style="font-weight:600;">R$ ${economia.toFixed(2)}</div>
+                        <div style="font-weight:600;">${formatMoney(economia)}</div>
                     </div>
                 </div>
             `;
@@ -1493,16 +1738,16 @@
         doc.setFontSize(10);
         doc.text(`Total de Clientes: ${state.clientes.length}`, 14, 48);
         doc.text(`Total de Empréstimos: ${state.emprestimos.length}`, 14, 54);
-        doc.text(`Total Emprestado: R$ ${totalEmprestado.toFixed(2)}`, 14, 60);
-        doc.text(`Total a Receber: R$ ${totalReceber.toFixed(2)}`, 14, 66);
+        doc.text(`Total Emprestado: ${formatMoney(totalEmprestado)}`, 14, 60);
+        doc.text(`Total a Receber: ${formatMoney(totalReceber)}`, 14, 66);
         const body = state.emprestimos.map((emp) => {
             const cliente = state.clientes.find((c) => c.id === emp.clienteId);
             return [
                 cliente ? cliente.nome : 'N/A',
-                `R$ ${emp.valor.toFixed(2)}`,
-                `${emp.taxa.toFixed(2)}%`,
+                `${formatMoney(emp.valor)}`,
+                `${formatPercent(emp.taxa)}`,
                 `${emp.parcelas}x`,
-                `R$ ${emp.saldoDevedor.toFixed(2)}`,
+                `${formatMoney(emp.saldoDevedor)}`,
                 emp.status.toUpperCase(),
             ];
         });
@@ -1519,12 +1764,12 @@
 
     function gerarCarnePDF() {
         if (!dom.emprestimoPagamento || !dom.emprestimoPagamento.value) {
-            alert('Selecione um empréstimo na aba Pagamentos.');
+            Toast.info('Selecione um empréstimo na aba Pagamentos.');
             return;
         }
         const emprestimo = state.emprestimos.find((e) => e.id === dom.emprestimoPagamento.value);
         if (!emprestimo) {
-            alert('Empréstimo não encontrado.');
+            Toast.error('Empréstimo não encontrado.');
             return;
         }
         const cliente = state.clientes.find((c) => c.id === emprestimo.clienteId);
@@ -1535,8 +1780,8 @@
         doc.setFontSize(10);
         doc.text(`Cliente: ${cliente ? cliente.nome : 'N/A'}`, 14, 30);
         doc.text(`CPF: ${cliente ? cliente.cpf : '-'}`, 14, 36);
-        doc.text(`Valor Emprestado: R$ ${emprestimo.valor.toFixed(2)}`, 14, 42);
-        doc.text(`Taxa: ${emprestimo.taxa.toFixed(2)}% a.m.`, 14, 48);
+        doc.text(`Valor Emprestado: ${formatMoney(emprestimo.valor)}`, 14, 42);
+        doc.text(`Taxa: ${formatPercent(emprestimo.taxa)} a.m.`, 14, 48);
         let y = 60;
         emprestimo.parcelasDetalhadas.forEach((parcela) => {
             if (y > 270) {
@@ -1552,7 +1797,7 @@
             doc.setFont(undefined, 'normal');
             doc.setFontSize(10);
             doc.text(`Vencimento: ${new Date(parcela.dataVencimento).toLocaleDateString('pt-BR')}`, 18, y + 15);
-            doc.text(`Valor: R$ ${parcela.valor.toFixed(2)}`, 18, y + 22);
+            doc.text(`Valor: ${formatMoney(parcela.valor)}`, 18, y + 22);
             if (parcela.status === 'paga') {
                 doc.setTextColor(0, 200, 100);
                 doc.text('✓ PAGA', 150, y + 15);
@@ -1570,11 +1815,11 @@
         const simValorEl = document.getElementById('simValor');
         const simTaxaEl = document.getElementById('simTaxa');
         const simParcelasEl = document.getElementById('simParcelas');
-        const valor = parseFloat((compValorEl && compValorEl.value) ? compValorEl.value : (simValorEl ? simValorEl.value : ''));
-        const taxa = parseFloat((compTaxaEl && compTaxaEl.value) ? compTaxaEl.value : (simTaxaEl ? simTaxaEl.value : '')) / 100;
+        const valor = parseBRMoney((compValorEl && compValorEl.value) ? compValorEl.value : (simValorEl ? simValorEl.value : ''));
+        const taxa = parseBRMoney((compTaxaEl && compTaxaEl.value) ? compTaxaEl.value : (simTaxaEl ? simTaxaEl.value : '')) / 100;
         const parcelas = parseInt((compParcelasEl && compParcelasEl.value) ? compParcelasEl.value : (simParcelasEl ? simParcelasEl.value : ''), 10);
         if (!valor || !taxa || !parcelas) {
-            alert('Preencha os campos do simulador avançado.');
+            Toast.warning('Preencha os campos do simulador avançado.');
             return;
         }
         const parcelaPrice = (valor * (taxa * Math.pow(1 + taxa, parcelas))) / (Math.pow(1 + taxa, parcelas) - 1);
@@ -1599,32 +1844,32 @@
             <div class="comparativo-grid">
                 <div class="sistema-card" style="cursor: pointer; transition: transform 0.2s;" onclick="exibirParcelasSistema('PRICE', ${valor}, ${taxa}, ${parcelas})" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
                     <div class="sistema-title">📊 Sistema PRICE</div>
-                    <div class="result-row"><span class="result-label">Parcela Fixa</span><span class="result-value">R$ ${parcelaPrice.toFixed(2)}</span></div>
-                    <div class="result-row"><span class="result-label">Total a Pagar</span><span class="result-value">R$ ${totalPrice.toFixed(2)}</span></div>
-                    <div class="result-row"><span class="result-label">Total de Juros</span><span class="result-value">R$ ${jurosPrice.toFixed(2)}</span></div>
+                    <div class="result-row"><span class="result-label">Parcela Fixa</span><span class="result-value">${formatMoney(parcelaPrice)}</span></div>
+                    <div class="result-row"><span class="result-label">Total a Pagar</span><span class="result-value">${formatMoney(totalPrice)}</span></div>
+                    <div class="result-row"><span class="result-label">Total de Juros</span><span class="result-value">${formatMoney(jurosPrice)}</span></div>
                     <p class="muted" style="margin-top:1rem; font-size:0.85rem;">✓ Parcelas iguais<br>✓ Facilita o planejamento<br><br><small>(Clique para ver detalhes)</small></p>
                 </div>
                 <div class="sistema-card" style="cursor: pointer; transition: transform 0.2s;" onclick="exibirParcelasSistema('SAC', ${valor}, ${taxa}, ${parcelas})" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
                     <div class="sistema-title">📉 Sistema SAC</div>
-                    <div class="result-row"><span class="result-label">1ª Parcela</span><span class="result-value">R$ ${parcelasSAC[0].toFixed(2)}</span></div>
-                    <div class="result-row"><span class="result-label">Última Parcela</span><span class="result-value">R$ ${parcelasSAC[parcelas - 1].toFixed(2)}</span></div>
-                    <div class="result-row"><span class="result-label">Total a Pagar</span><span class="result-value">R$ ${totalSAC.toFixed(2)}</span></div>
-                    <div class="result-row"><span class="result-label">Total de Juros</span><span class="result-value">R$ ${jurosSAC.toFixed(2)}</span></div>
+                    <div class="result-row"><span class="result-label">1ª Parcela</span><span class="result-value">${formatMoney(parcelasSAC[0])}</span></div>
+                    <div class="result-row"><span class="result-label">Última Parcela</span><span class="result-value">${formatMoney(parcelasSAC[parcelas - 1])}</span></div>
+                    <div class="result-row"><span class="result-label">Total a Pagar</span><span class="result-value">${formatMoney(totalSAC)}</span></div>
+                    <div class="result-row"><span class="result-label">Total de Juros</span><span class="result-value">${formatMoney(jurosSAC)}</span></div>
                     <p class="muted" style="margin-top:1rem; font-size:0.85rem;">✓ Parcelas decrescentes<br>✓ Menor juros total<br><br><small>(Clique para ver detalhes)</small></p>
                 </div>
                 <div class="sistema-card" style="cursor: pointer; transition: transform 0.2s;" onclick="exibirParcelasSistema('AMERICANO', ${valor}, ${taxa}, ${parcelas})" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
                     <div class="sistema-title">💵 Sistema AMERICANO</div>
-                    <div class="result-row"><span class="result-label">Juros Mensais</span><span class="result-value">R$ ${jurosMensal.toFixed(2)}</span></div>
-                    <div class="result-row"><span class="result-label">Principal no Final</span><span class="result-value">R$ ${valor.toFixed(2)}</span></div>
-                    <div class="result-row"><span class="result-label">Total a Pagar</span><span class="result-value">R$ ${totalAmericano.toFixed(2)}</span></div>
-                    <div class="result-row"><span class="result-label">Total de Juros</span><span class="result-value">R$ ${jurosAmericano.toFixed(2)}</span></div>
+                    <div class="result-row"><span class="result-label">Juros Mensais</span><span class="result-value">${formatMoney(jurosMensal)}</span></div>
+                    <div class="result-row"><span class="result-label">Principal no Final</span><span class="result-value">${formatMoney(valor)}</span></div>
+                    <div class="result-row"><span class="result-label">Total a Pagar</span><span class="result-value">${formatMoney(totalAmericano)}</span></div>
+                    <div class="result-row"><span class="result-label">Total de Juros</span><span class="result-value">${formatMoney(jurosAmericano)}</span></div>
                     <p class="muted" style="margin-top:1rem; font-size:0.85rem;">✓ Só paga juros mensalmente<br>✓ Principal quitado no fim<br><br><small>(Clique para ver detalhes)</small></p>
                 </div>
             </div>
             <div style="margin-top:2rem; padding:1rem; background: rgba(0,255,159,0.1); border-radius:8px; border:1px solid var(--accent-primary);">
                 <strong style="color: var(--accent-primary);">💡 Melhor Opção:</strong>
                 <p style="margin:0.5rem 0 0 0; color: var(--text-secondary);">
-                    ${jurosSAC < jurosPrice ? `O Sistema SAC economiza R$ ${(jurosPrice - jurosSAC).toFixed(2)} em juros.` : 'O Sistema PRICE oferece parcelas fixas e previsíveis.'}
+                    ${jurosSAC < jurosPrice ? `O Sistema SAC economiza ${formatMoney((jurosPrice - jurosSAC))} em juros.` : 'O Sistema PRICE oferece parcelas fixas e previsíveis.'}
                 </p>
             </div>
             
@@ -1728,10 +1973,10 @@
             html += `
                 <tr>
                     <td>${i}</td>
-                    <td>R$ ${saldo.toFixed(2)}</td>
-                    <td>R$ ${amortizacao.toFixed(2)}</td>
-                    <td>R$ ${juros.toFixed(2)}</td>
-                    <td><strong>R$ ${parcela.toFixed(2)}</strong></td>
+                    <td>${formatMoney(saldo)}</td>
+                    <td>${formatMoney(amortizacao)}</td>
+                    <td>${formatMoney(juros)}</td>
+                    <td><strong>${formatMoney(parcela)}</strong></td>
                 </tr>
             `;
 
@@ -1743,9 +1988,9 @@
                 <tr style="background-color: var(--bg-card-hover); font-weight: bold;">
                     <td>TOTAL</td>
                     <td>-</td>
-                    <td>R$ ${totalAmortizacao.toFixed(2)}</td>
-                    <td>R$ ${totalJuros.toFixed(2)}</td>
-                    <td>R$ ${totalPago.toFixed(2)}</td>
+                    <td>${formatMoney(totalAmortizacao)}</td>
+                    <td>${formatMoney(totalJuros)}</td>
+                    <td>${formatMoney(totalPago)}</td>
                 </tr>
                 </tbody>
             </table>
@@ -1765,10 +2010,28 @@
     window.abrirModalEmprestimo = abrirModalEmprestimo;
     window.fecharModalEmprestimo = fecharModalEmprestimo;
     window.exibirParcelasSistema = exibirParcelasSistema;
+    function limparSimulador() {
+        // Limpa todos os campos do simulador
+        document.getElementById('simValor').value = '';
+        document.getElementById('simTaxa').value = '';
+        document.getElementById('simParcelas').value = '';
+
+        // Limpa os resultados
+        document.getElementById('simulatorResult').innerHTML = '';
+        document.getElementById('comparativoSistemas').innerHTML = '';
+
+        // Reseta a última simulação
+        ultimaSimulacao = null;
+
+        // Mostra mensagem de sucesso
+        Toast.info('Simulador limpo! Preencha os campos para nova simulação.');
+    }
+
     window.fecharModalDetalhesSistema = fecharModalDetalhesSistema;
     window.confirmarEmprestimoSimulado = confirmarEmprestimoSimulado;
     window.switchTab = switchTab;
     window.simular = simular;
+    window.limparSimulador = limparSimulador;
     window.cadastrarCliente = cadastrarCliente;
     window.registrarEmprestimo = registrarEmprestimo;
     window.carregarDetalhesPagamento = carregarDetalhesPagamento;

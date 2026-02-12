@@ -10,6 +10,9 @@
     <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body>
+    <!-- Toast Notifications Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
     <div class="background-grid"></div>
     <div class="background-glow"></div>
 
@@ -39,18 +42,18 @@
                 </div>
                 <div class="header-actions">
                     <span id="currentUserName" class="user-pill">Conectando...</span>
-                    <button id="logoutBtn" class="btn btn-secondary btn-small">Sair</button>
+                    <button id="logoutBtn" class="btn btn-secondary btn-small" data-tooltip="Sair do sistema">Sair</button>
                 </div>
             </div>
 
             <div class="tabs">
-                <button class="tab active" onclick="switchTab('dashboard')">Dashboard</button>
-                <button class="tab" onclick="switchTab('simulator')">Simulador</button>
-                <button class="tab" onclick="switchTab('clientes')">Clientes</button>
-                <button class="tab" onclick="switchTab('emprestimos')">Empréstimos</button>
-                <button class="tab" onclick="switchTab('pagamentos')">Pagamentos</button>
-                <button class="tab" onclick="switchTab('relatorios')">Relatórios</button>
-                <button class="tab" onclick="switchTab('historico')">Histórico</button>
+                <button class="tab active" onclick="switchTab('dashboard')" data-tooltip="Visão geral do sistema">📊 Dashboard</button>
+                <button class="tab" onclick="switchTab('simulator')" data-tooltip="Simule empréstimos e compare sistemas">🧮 Simulador</button>
+                <button class="tab" onclick="switchTab('clientes')" data-tooltip="Gerencie seus clientes">👥 Clientes</button>
+                <button class="tab" onclick="switchTab('emprestimos')" data-tooltip="Visualize todos os empréstimos">💸 Empréstimos</button>
+                <button class="tab" onclick="switchTab('pagamentos')" data-tooltip="Registre e acompanhe pagamentos">💳 Pagamentos</button>
+                <button class="tab" onclick="switchTab('relatorios')" data-tooltip="Exporte relatórios e backups">📄 Relatórios</button>
+                <button class="tab" onclick="switchTab('historico')" data-tooltip="Histórico completo de transações">📜 Histórico</button>
             </div>
 
             <div class="alert hidden" id="globalAlert"></div>
@@ -91,33 +94,29 @@
 
         <div id="simulator" class="content">
             <div class="card">
-                <h2 class="card-title">Simulador Avançado de Juros</h2>
+                <h2 class="card-title">🧮 Simulador Avançado de Juros</h2>
                 <p style="color: var(--text-secondary); margin-bottom: 2rem;">
-                    Preencha 3 dos 4 campos abaixo. O campo que estiver vazio será calculado automaticamente.
+                    Informe o valor a emprestar, a taxa de juros e a quantidade de parcelas.
                 </p>
 
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="simValor">Valor a Emprestar (R$)</label>
-                        <input type="number" id="simValor" step="0.01" placeholder="Ex: 10000">
+                        <input type="text" id="simValor" placeholder="Ex: 10.000,00" data-tooltip="Valor total do empréstimo">
                     </div>
                     <div class="form-group">
                         <label for="simTaxa">Taxa de Juros (% ao mês)</label>
-                        <input type="number" id="simTaxa" step="0.01" placeholder="Ex: 5">
+                        <input type="text" id="simTaxa" placeholder="Ex: 5,00" data-tooltip="Taxa mensal de juros compostos">
                     </div>
                     <div class="form-group">
                         <label for="simParcelas">Quantidade de Parcelas</label>
-                        <input type="number" id="simParcelas" step="1" min="1" placeholder="Ex: 12">
-                    </div>
-                    <div class="form-group">
-                        <label for="simValorParcela">Valor da Parcela (R$)</label>
-                        <input type="number" id="simValorParcela" step="0.01" placeholder="Ex: 900">
+                        <input type="number" id="simParcelas" step="1" min="1" placeholder="Ex: 12" data-tooltip="Número de meses para pagamento">
                     </div>
                 </div>
 
                 <div style="display:flex; gap: 1rem; flex-wrap: wrap;">
-                    <button class="btn btn-primary" onclick="simular()">Calcular Simulação</button>
-                    <button class="btn btn-secondary" onclick="compararSistemas()">Comparar Sistemas</button>
+                    <button class="btn btn-primary" onclick="simular()" data-tooltip="Calcular valores baseado nos campos preenchidos">🔍 Calcular Simulação</button>
+                    <button class="btn btn-secondary" onclick="compararSistemas()" data-tooltip="Comparar Price vs SAC">📊 Comparar Sistemas</button>
                 </div>
 
                 <div id="simulatorResult"></div>
@@ -129,7 +128,7 @@
             <div class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                     <h2 class="card-title" style="margin:0;">Lista de Clientes</h2>
-                    <button class="btn btn-primary" onclick="abrirModalCliente()">Novo Cliente</button>
+                    <button class="btn btn-primary" onclick="abrirModalCliente()" data-tooltip="Cadastrar novo cliente">+ Novo Cliente</button>
                 </div>
                 <div class="table-container" id="listaClientes">
                     <div class="empty-state">
@@ -144,7 +143,7 @@
             <div class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                     <h2 class="card-title" style="margin:0;">Empréstimos Registrados</h2>
-                    <button class="btn btn-primary" onclick="abrirModalEmprestimo()">Novo Empréstimo</button>
+                    <button class="btn btn-primary" onclick="abrirModalEmprestimo()" data-tooltip="Registrar novo empréstimo">+ Novo Empréstimo</button>
                 </div>
                 <div class="table-container" id="listaEmprestimos">
                     <div class="empty-state">
@@ -173,16 +172,16 @@
             <div class="card">
                 <h2 class="card-title">Exportar Relatórios</h2>
                 <div class="dashboard-grid">
-                    <button class="btn btn-primary" onclick="gerarRelatorioPDF()">
+                    <button class="btn btn-primary" onclick="gerarRelatorioPDF()" data-tooltip="Gerar PDF com todos os dados">
                         📄 Relatório Completo PDF
                     </button>
-                    <button class="btn btn-primary" onclick="gerarCarnePDF()">
+                    <button class="btn btn-primary" onclick="gerarCarnePDF()" data-tooltip="Imprimir carnê de um empréstimo">
                         📋 Carnê de Pagamentos
                     </button>
-                    <button class="btn btn-primary" onclick="exportarDadosJSON()">
+                    <button class="btn btn-primary" onclick="exportarDadosJSON()" data-tooltip="Fazer backup de todos os dados">
                         💾 Backup Completo (JSON)
                     </button>
-                    <button class="btn btn-secondary" onclick="document.getElementById('importarJSON').click()">
+                    <button class="btn btn-secondary" onclick="document.getElementById('importarJSON').click()" data-tooltip="Restaurar dados de um backup">
                         📂 Restaurar Backup
                     </button>
                 </div>
