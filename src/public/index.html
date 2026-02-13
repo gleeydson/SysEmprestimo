@@ -19,17 +19,42 @@
     <div id="loginScreen" class="auth-overlay">
         <form id="loginForm" class="auth-card">
             <h2>Acesse o Sistema</h2>
-            <p class="muted">Use seu e-mail corporativo para continuar.</p>
+            <p class="muted">Use seu e-mail para continuar.</p>
             <div class="form-group">
                 <label for="loginEmail">E-mail</label>
-                <input type="email" id="loginEmail" placeholder="email@empresa.com" required>
+                <input type="email" id="loginEmail" placeholder="email@exemplo.com" required autocomplete="email">
             </div>
             <div class="form-group">
                 <label for="loginPassword">Senha</label>
-                <input type="password" id="loginPassword" placeholder="••••••••" required>
+                <input type="password" id="loginPassword" placeholder="••••••••" required autocomplete="current-password">
             </div>
             <button class="btn btn-primary" type="submit">Entrar</button>
             <div id="loginError" class="auth-error" role="alert"></div>
+            <p class="auth-switch">Não tem uma conta? <a href="#" id="showRegisterLink">Criar conta</a></p>
+        </form>
+
+        <form id="registerForm" class="auth-card hidden">
+            <h2>Criar Conta</h2>
+            <p class="muted">Preencha os dados para começar a usar o sistema.</p>
+            <div class="form-group">
+                <label for="registerName">Nome Completo</label>
+                <input type="text" id="registerName" placeholder="Seu nome completo" required autocomplete="name">
+            </div>
+            <div class="form-group">
+                <label for="registerEmail">E-mail</label>
+                <input type="email" id="registerEmail" placeholder="email@exemplo.com" required autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label for="registerPassword">Senha</label>
+                <input type="password" id="registerPassword" placeholder="Mínimo 6 caracteres" required autocomplete="new-password" minlength="6">
+            </div>
+            <div class="form-group">
+                <label for="registerPasswordConfirm">Confirmar Senha</label>
+                <input type="password" id="registerPasswordConfirm" placeholder="Digite a senha novamente" required autocomplete="new-password" minlength="6">
+            </div>
+            <button class="btn btn-primary" type="submit">Criar Conta</button>
+            <div id="registerError" class="auth-error" role="alert"></div>
+            <p class="auth-switch">Já tem uma conta? <a href="#" id="showLoginLink">Fazer login</a></p>
         </form>
     </div>
 

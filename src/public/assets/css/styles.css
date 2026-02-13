@@ -96,6 +96,25 @@ body {
     display: none;
 }
 
+.auth-switch {
+    margin-top: 1.5rem;
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.auth-switch a {
+    color: var(--accent-primary);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s;
+}
+
+.auth-switch a:hover {
+    color: var(--accent-secondary);
+    text-decoration: underline;
+}
+
 .background-grid {
     position: fixed;
     inset: 0;

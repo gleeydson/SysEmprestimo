@@ -335,6 +335,14 @@
         dom.loginEmail = document.getElementById('loginEmail');
         dom.loginPassword = document.getElementById('loginPassword');
         dom.loginError = document.getElementById('loginError');
+        dom.registerForm = document.getElementById('registerForm');
+        dom.registerName = document.getElementById('registerName');
+        dom.registerEmail = document.getElementById('registerEmail');
+        dom.registerPassword = document.getElementById('registerPassword');
+        dom.registerPasswordConfirm = document.getElementById('registerPasswordConfirm');
+        dom.registerError = document.getElementById('registerError');
+        dom.showRegisterLink = document.getElementById('showRegisterLink');
+        dom.showLoginLink = document.getElementById('showLoginLink');
         dom.appRoot = document.getElementById('appRoot');
         dom.logoutBtn = document.getElementById('logoutBtn');
         dom.currentUserName = document.getElementById('currentUserName');
@@ -353,6 +361,21 @@
     function bindEvents() {
         if (dom.loginForm) {
             dom.loginForm.addEventListener('submit', handleLogin);
+        }
+        if (dom.registerForm) {
+            dom.registerForm.addEventListener('submit', handleRegister);
+        }
+        if (dom.showRegisterLink) {
+            dom.showRegisterLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                showRegisterForm();
+            });
+        }
+        if (dom.showLoginLink) {
+            dom.showLoginLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                showLoginForm();
+            });
         }
         if (dom.logoutBtn) {
             dom.logoutBtn.addEventListener('click', () => handleLogout());
@@ -593,6 +616,64 @@
             console.error(error);
             dom.loginError.textContent = error.message;
         }
+    }
+
+    async function handleRegister(event) {
+        event.preventDefault();
+        dom.registerError.textContent = '';
+
+        const name = dom.registerName.value.trim();
+        const email = dom.registerEmail.value.trim().toLowerCase();
+        const password = dom.registerPassword.value.trim();
+        const passwordConfirm = dom.registerPasswordConfirm.value.trim();
+
+        // Validações
+        if (!name || !email || !password || !passwordConfirm) {
+            dom.registerError.textContent = 'Preencha todos os campos.';
+            return;
+        }
+
+        if (password.length < 6) {
+            dom.registerError.textContent = 'A senha deve ter pelo menos 6 caracteres.';
+            return;
+        }
+
+        if (password !== passwordConfirm) {
+            dom.registerError.textContent = 'As senhas não coincidem.';
+            return;
+        }
+
+        try {
+            const { token, user } = await apiRequest('/api/register', {
+                method: 'POST',
+                body: { name, email, password },
+                skipAuth: true,
+            });
+            state.token = token;
+            state.user = user;
+            sessionStorage.setItem('authToken', token);
+            dom.registerForm.reset();
+            await bootstrapData();
+            showApp();
+            showAlert(`Bem-vindo, ${user.name}! Sua conta foi criada com sucesso.`);
+        } catch (error) {
+            console.error(error);
+            dom.registerError.textContent = error.message;
+        }
+    }
+
+    function showLoginForm() {
+        dom.loginForm.classList.remove('hidden');
+        dom.registerForm.classList.add('hidden');
+        dom.loginError.textContent = '';
+        dom.loginForm.reset();
+    }
+
+    function showRegisterForm() {
+        dom.loginForm.classList.add('hidden');
+        dom.registerForm.classList.remove('hidden');
+        dom.registerError.textContent = '';
+        dom.registerForm.reset();
     }
 
     function handleLogout(message) {

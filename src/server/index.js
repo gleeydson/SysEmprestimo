@@ -47,6 +47,7 @@ const userSchema = new mongoose.Schema({
 
 const clienteSchema = new mongoose.Schema({
   id: { type: String, unique: true, index: true },
+  userId: { type: String, required: true, index: true },
   nome: String,
   cpf: { type: String, index: true },
   telefone: String,
@@ -57,6 +58,7 @@ const clienteSchema = new mongoose.Schema({
 
 const emprestimoSchema = new mongoose.Schema({
   id: { type: String, unique: true, index: true },
+  userId: { type: String, required: true, index: true },
   clienteId: { type: String, index: true },
   valor: Number,
   valorOriginal: Number,
@@ -194,6 +196,52 @@ async function connectToDatabase() {
   return dbConnectionPromise;
 }
 
+app.post('/api/register', loginLimiter, async (req, res) => {
+  const { name, email, password } = req.body;
+
+  // Validações
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: 'Informe nome, e-mail e senha.' });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({ message: 'A senha deve ter pelo menos 6 caracteres.' });
+  }
+
+  const emailLower = email.toLowerCase().trim();
+
+  // Verifica se o e-mail já está cadastrado
+  const existingUser = await Users.findOne({ email: emailLower }).lean();
+  if (existingUser) {
+    return res.status(400).json({ message: 'Este e-mail já está cadastrado.' });
+  }
+
+  // Cria o novo usuário
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const newUser = {
+    id: randomUUID(),
+    name: name.trim(),
+    email: emailLower,
+    password: hashedPassword,
+    role: 'user',
+    createdAt: new Date().toISOString(),
+  };
+
+  await Users.create(newUser);
+
+  // Retorna o token
+  const token = createToken(newUser);
+  res.status(201).json({
+    token,
+    user: {
+      id: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      role: newUser.role,
+    },
+  });
+});
+
 app.post('/api/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
@@ -228,17 +276,21 @@ app.get('/api/profile', authenticate, async (req, res) => {
 });
 
 app.get('/api/clientes', authenticate, async (req, res) => {
-  const clientes = await Clientes.find({}).sort({ dataCadastro: -1 }).lean();
+  const userId = req.user.sub;
+  const clientes = await Clientes.find({ userId }).sort({ dataCadastro: -1 }).lean();
   res.json(clientes);
 });
 
 app.post('/api/clientes', authenticate, async (req, res) => {
   const { nome, cpf, telefone, email, endereco } = req.body;
+  const userId = req.user.sub;
+
   if (!nome || !cpf) {
     return res.status(400).json({ message: 'Nome e CPF são obrigatórios.' });
   }
   const cliente = {
     id: randomUUID(),
+    userId,
     nome,
     cpf,
     telefone,
@@ -252,24 +304,30 @@ app.post('/api/clientes', authenticate, async (req, res) => {
 
 app.delete('/api/clientes/:id', authenticate, async (req, res) => {
   const { id } = req.params;
-  await Clientes.deleteOne({ id });
-  await Emprestimos.deleteMany({ clienteId: id });
+  const userId = req.user.sub;
+
+  await Clientes.deleteOne({ id, userId });
+  await Emprestimos.deleteMany({ clienteId: id, userId });
   res.status(204).end();
 });
 
 app.get('/api/emprestimos', authenticate, async (req, res) => {
-  const emprestimos = await Emprestimos.find({}).sort({ dataCriacao: -1 }).lean();
+  const userId = req.user.sub;
+  const emprestimos = await Emprestimos.find({ userId }).sort({ dataCriacao: -1 }).lean();
   res.json(emprestimos);
 });
 
 app.post('/api/emprestimos', authenticate, async (req, res) => {
   const emprestimo = req.body;
+  const userId = req.user.sub;
+
   if (!emprestimo?.clienteId) {
     return res.status(400).json({ message: 'clienteId obrigatório.' });
   }
   const payload = {
     ...emprestimo,
     id: randomUUID(),
+    userId,
     dataCriacao: new Date().toISOString(),
   };
   const inserted = await Emprestimos.create(payload);
@@ -278,6 +336,7 @@ app.post('/api/emprestimos', authenticate, async (req, res) => {
 
 app.patch('/api/emprestimos/:id', authenticate, async (req, res) => {
   const { id } = req.params;
+  const userId = req.user.sub;
   const updates = req.body || {};
   const allowedUpdateFields = new Set([
     'valor',
@@ -302,7 +361,7 @@ app.patch('/api/emprestimos/:id', authenticate, async (req, res) => {
   if (invalidFields.length) {
     return res.status(400).json({ message: `Campos inválidos para atualização: ${invalidFields.join(', ')}` });
   }
-  const updated = await Emprestimos.findOneAndUpdate({ id }, { $set: updates }, { new: true }).lean();
+  const updated = await Emprestimos.findOneAndUpdate({ id, userId }, { $set: updates }, { new: true }).lean();
   if (!updated) {
     return res.status(404).json({ message: 'Empréstimo não encontrado' });
   }
@@ -311,7 +370,8 @@ app.patch('/api/emprestimos/:id', authenticate, async (req, res) => {
 
 app.delete('/api/emprestimos/:id', authenticate, async (req, res) => {
   const { id } = req.params;
-  await Emprestimos.deleteOne({ id });
+  const userId = req.user.sub;
+  await Emprestimos.deleteOne({ id, userId });
   res.status(204).end();
 });
 
